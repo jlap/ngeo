@@ -104619,52 +104619,52 @@ ngeo.FeatureProperties = {
    * @type {string}
    * @export
    */
-  ANGLE: 'angle',
+  ANGLE: 'a',
   /**
    * @type {string}
    * @export
    */
-  COLOR: 'color',
+  COLOR: 'c',
   /**
    * @type {string}
    * @export
    */
-  IS_CIRCLE: 'isCircle',
+  IS_CIRCLE: 'l',
   /**
    * @type {string}
    * @export
    */
-  IS_RECTANGLE: 'isRectangle',
+  IS_RECTANGLE: 'r',
   /**
    * @type {string}
    * @export
    */
-  IS_TEXT: 'isText',
+  IS_TEXT: 't',
   /**
    * @type {string}
    * @export
    */
-  NAME: 'name',
+  NAME: 'n',
   /**
    * @type {string}
    * @export
    */
-  OPACITY: 'opacity',
+  OPACITY: 'o',
   /**
    * @type {string}
    * @export
    */
-  SHOW_MEASURE: 'showMeasure',
+  SHOW_MEASURE: 'm',
   /**
    * @type {string}
    * @export
    */
-  SIZE: 'size',
+  SIZE: 's',
   /**
    * @type {string}
    * @export
    */
-  STROKE: 'stroke'
+  STROKE: 'k'
 };
 
 
@@ -106534,7 +106534,7 @@ ngeo.interaction.Measure.prototype.handleDrawInteractionActiveChange_ =
       }
     };
 
-goog.provide('ngeo.FeatureHelper')
+goog.provide('ngeo.FeatureHelper');
 
 goog.require('ngeo');
 goog.require('ngeo.interaction.Measure');
@@ -106662,7 +106662,7 @@ ngeo.FeatureHelper.prototype.getLineStringStyle_ = function(feature) {
 
   var strokeWidth = this.getStrokeProperty(feature);
   var showMeasure = this.getShowMeasureProperty(feature);
-  var color = this.getColorProperty(feature);
+  var color = this.getRGBAColorProperty(feature);
 
   var options = {
     stroke: new ol.style.Stroke({
@@ -106688,7 +106688,7 @@ ngeo.FeatureHelper.prototype.getLineStringStyle_ = function(feature) {
 ngeo.FeatureHelper.prototype.getPointStyle_ = function(feature) {
 
   var size = this.getSizeProperty(feature);
-  var color = this.getColorProperty(feature);
+  var color = this.getRGBAColorProperty(feature);
 
   var options = {
     image: new ol.style.Circle({
@@ -106719,13 +106719,11 @@ ngeo.FeatureHelper.prototype.getPolygonStyle_ = function(feature) {
 
   var strokeWidth = this.getStrokeProperty(feature);
   var opacity = this.getOpacityProperty(feature);
-  var color = this.getColorProperty(feature);
+  var color = this.getRGBAColorProperty(feature);
 
   // fill color with opacity
-  var rgbColor = ol.color.fromString(color);
-  var rgbaColor = rgbColor.slice();
-  rgbaColor[3] = opacity;
-  var fillColor = ol.color.toString(rgbaColor);
+  var fillColor = color.slice();
+  fillColor[3] = opacity;
 
   var options = {
     fill: new ol.style.Fill({
@@ -106758,7 +106756,7 @@ ngeo.FeatureHelper.prototype.getTextStyle_ = function(feature) {
   var label = this.getNameProperty(feature);
   var size = this.getSizeProperty(feature);
   var angle = this.getAngleProperty(feature);
-  var color = this.getColorProperty(feature);
+  var color = this.getRGBAColorProperty(feature);
 
   return new ol.style.Style({
     text: this.createTextStyle_(label, size, angle, color)
@@ -106812,7 +106810,7 @@ ngeo.FeatureHelper.prototype.getVertexStyle = function(opt_incGeomFunc) {
       } else {
         return feature.getGeometry();
       }
-    }
+    };
   }
 
   return new ol.style.Style(options);
@@ -106853,7 +106851,7 @@ ngeo.FeatureHelper.prototype.getHaloStyle_ = function(feature) {
         image: new ol.style.Circle({
           radius: size + haloSize,
           fill: new ol.style.Fill({
-            color: 'white'
+            color: [255, 255, 255, 1]
           })
         })
       });
@@ -106865,7 +106863,7 @@ ngeo.FeatureHelper.prototype.getHaloStyle_ = function(feature) {
       var strokeWidth = this.getStrokeProperty(feature);
       style = new ol.style.Style({
         stroke: new ol.style.Stroke({
-          color: 'white',
+          color: [255, 255, 255, 1],
           width: strokeWidth + haloSize * 2
         })
       });
@@ -106874,10 +106872,10 @@ ngeo.FeatureHelper.prototype.getHaloStyle_ = function(feature) {
       var label = this.getNameProperty(feature);
       size = this.getSizeProperty(feature);
       var angle = this.getAngleProperty(feature);
-      var color = 'white';
+      var color = [255, 255, 255, 1];
       style = new ol.style.Style({
         text: this.createTextStyle_(label, size, angle, color, haloSize * 2)
-      })
+      });
       break;
     default:
       break;
@@ -106922,6 +106920,16 @@ ngeo.FeatureHelper.prototype.getColorProperty = function(feature) {
 
 /**
  * @param {ol.Feature} feature Feature.
+ * @return {ol.Color} Color.
+ * @export
+ */
+ngeo.FeatureHelper.prototype.getRGBAColorProperty = function(feature) {
+  return ol.color.fromString(this.getColorProperty(feature));
+};
+
+
+/**
+ * @param {ol.Feature} feature Feature.
  * @return {string} Name.
  * @export
  */
@@ -106951,13 +106959,14 @@ ngeo.FeatureHelper.prototype.getOpacityProperty = function(feature) {
  * @export
  */
 ngeo.FeatureHelper.prototype.getShowMeasureProperty = function(feature) {
-  var showMeasure = (/** @type {boolean} */ (
-        feature.get(ngeo.FeatureProperties.SHOW_MEASURE)));
+  var showMeasure = feature.get(ngeo.FeatureProperties.SHOW_MEASURE);
   if (showMeasure === undefined) {
     showMeasure = false;
+  } else if (typeof showMeasure === 'string') {
+    showMeasure = (showMeasure === 'true') ? true : false;
   }
   goog.asserts.assertBoolean(showMeasure);
-  return showMeasure;
+  return /** @type {boolean} */ (showMeasure);
 };
 
 
@@ -106999,10 +107008,10 @@ ngeo.FeatureHelper.prototype.getStrokeProperty = function(feature) {
 ngeo.FeatureHelper.prototype.export = function(features, formatType) {
   switch (formatType) {
     case ngeo.FeatureHelper.FormatType.GPX:
-      this.exportGPX(features)
+      this.exportGPX(features);
       break;
     case ngeo.FeatureHelper.FormatType.KML:
-      this.exportKML(features)
+      this.exportKML(features);
       break;
     default:
       break;
@@ -107089,7 +107098,7 @@ ngeo.FeatureHelper.prototype.export_ = function(features, format, fileName,
  * @param {string} text The text to display.
  * @param {number} size The size in `pt` of the text font.
  * @param {number=} opt_angle The angle in degrees of the text.
- * @param {string=} opt_color The color of the text.
+ * @param {ol.Color=} opt_color The color of the text.
  * @param {number=} opt_width The width of the outline color.
  * @return {ol.style.Text} Style.
  * @private
@@ -107100,14 +107109,14 @@ ngeo.FeatureHelper.prototype.createTextStyle_ = function(text, size,
   var angle = opt_angle !== undefined ? opt_angle : 0;
   var rotation = angle * Math.PI / 180;
   var font = ['normal', size + 'pt', 'Arial'].join(' ');
-  var color = opt_color !== undefined ? opt_color : '#000000';
+  var color = opt_color !== undefined ? opt_color : [0, 0, 0, 1];
   var width = opt_width !== undefined ? opt_width : 3;
 
   return new ol.style.Text({
     font: font,
     text: text,
     fill: new ol.style.Fill({color: color}),
-    stroke: new ol.style.Stroke({color: '#ffffff', width: width}),
+    stroke: new ol.style.Stroke({color: [255, 255, 255, 1], width: width}),
     rotation: rotation
   });
 };
@@ -108086,7 +108095,7 @@ ngeo.measurelengthDirective = function($compile, gettext) {
       });
 
       drawFeatureCtrl.registerInteraction(measureLength);
-      drawFeatureCtrl.measureLength = measureLength
+      drawFeatureCtrl.measureLength = measureLength;
 
       ol.events.listen(
           measureLength,
@@ -108810,7 +108819,7 @@ ngeo.layertreeDirective = function($compile, ngeoLayertreeTemplateUrl) {
     scope: true,
     templateUrl: ngeoLayertreeTemplateUrl,
     controller: 'NgeoLayertreeController'
-  }
+  };
 };
 
 
@@ -109284,9 +109293,227 @@ ngeo.MobileGeolocationController.prototype.handleViewChange_ = function(event) {
 ngeo.module.controller('NgeoMobileGeolocationController',
     ngeo.MobileGeolocationController);
 
+goog.provide('ngeo.LayerHelper');
+
+goog.require('ngeo');
+goog.require('ol.Collection');
+goog.require('ol.array');
+goog.require('ol.format.WMTSCapabilities');
+goog.require('ol.layer.Group');
+goog.require('ol.layer.Image');
+goog.require('ol.layer.Tile');
+goog.require('ol.source.ImageWMS');
+goog.require('ol.source.WMTS');
+
+
+/**
+ * Provides help functions that helps you to create and manage layers.
+ * @param {angular.$q} $q Angular promises/deferred service.
+ * @param {angular.$http} $http Angular http service.
+ * @constructor
+ * @ngdoc service
+ * @ngname ngeoLayerHelper
+ * @ngInject
+ */
+ngeo.LayerHelper = function($q, $http) {
+
+  /**
+   * @type {angular.$q}
+   * @private
+   */
+  this.$q_ = $q;
+
+  /**
+   * @type {angular.$http}
+   * @private
+   */
+  this.$http_ = $http;
+};
+
+
+/**
+ * @const
+ */
+ngeo.LayerHelper.GROUP_KEY = 'groupName';
+
+
+/**
+ * Create and return a basic WMS layer with only a source URL and a dot
+ * separated layers names (see {@link ol.source.ImageWMS}).
+ * @param {string} sourceURL The source URL.
+ * @param {string} sourceLayersName A dot separated names string.
+ * @return {ol.layer.Image} WMS Layer.
+ * @export
+ */
+ngeo.LayerHelper.prototype.createBasicWMSLayer = function(sourceURL,
+    sourceLayersName) {
+  var layer = new ol.layer.Image({
+    source: new ol.source.ImageWMS({
+      url: sourceURL,
+      params: {'LAYERS': sourceLayersName}
+    })
+  });
+  return layer;
+};
+
+
+/**
+ * Create and return a promise that provides a WMTS layer with source on
+ * success, no layer else.
+ * The WMTS layer source will be configured by the capabilities that are
+ * loaded from the given capabilitiesUrl.
+ * The style object described in the capabilities for this layer will be added
+ * as key 'capabilitiesStyles' as param of the new layer.
+ * @param {string} capabilitiesURL The getCapabilities url.
+ * @param {string} layerName The name of the layer.
+ * @return {angular.$q.Promise} A Promise with a layer (with source) on success,
+ *     no layer else.
+ * @export
+ */
+ngeo.LayerHelper.prototype.createWMTSLayerFromCapabilitites = function(
+    capabilitiesURL, layerName) {
+  var parser = new ol.format.WMTSCapabilities();
+  var layer = new ol.layer.Tile();
+  var $q = this.$q_;
+
+  return this.$http_.get(capabilitiesURL).then(function(response) {
+    var result;
+    if (response.data) {
+      result = parser.read(response.data);
+    }
+    if (result !== undefined) {
+      var options = ol.source.WMTS.optionsFromCapabilities(result,
+          {layer: layerName, requestEncoding: 'REST'});
+      layer.setSource(new ol.source.WMTS(options));
+
+      // Add styles from capabilities as param of the layer
+      var layers = result['Contents']['Layer'];
+      var l = ol.array.find(layers, function(elt, index, array) {
+        return elt['Identifier'] == layerName;
+      });
+      layer.set('capabilitiesStyles', l['Style']);
+
+      return $q.resolve(layer);
+    }
+    return $q.reject('Failed to get WMTS capabilities from ' +
+        capabilitiesURL);
+  });
+};
+
+
+/**
+ * Create and return an ol.layer.Group. You can pass a collection of layers to
+ * directly add them in the returned group.
+ * @param {ol.Collection.<ol.layer.Base>=} opt_layers The layer to add to the
+ * returned Group.
+ * @return {ol.layer.Group} Layer group.
+ * @export
+ */
+ngeo.LayerHelper.prototype.createBasicGroup = function(opt_layers) {
+  var group = new ol.layer.Group();
+  if (goog.isDefAndNotNull(opt_layers)) {
+    group.setLayers(opt_layers);
+  }
+  return group;
+};
+
+
+/**
+ * Retrieve (or create if it doesn't exist) and return a group of layer from
+ * the base array of layers of a map. The given name is used as unique
+ * identifier. If the group is created, it will be automatically added to
+ * the map.
+ * @param {ol.Map} map A map.
+ * @param {string} groupName The name of the group.
+ * @return {ol.layer.Group} The group corresponding to the given name.
+ * @export
+ */
+ngeo.LayerHelper.prototype.getGroupFromMap = function(map, groupName) {
+  var groups = map.getLayerGroup().getLayers();
+  var group;
+  groups.getArray().some(function(exitingGroup) {
+    if (exitingGroup.get(ngeo.LayerHelper.GROUP_KEY) === groupName) {
+      group = /** @type {ol.layer.Group} */ (exitingGroup);
+      return true;
+    } else {
+      return false;
+    }
+  });
+  if (!group) {
+    group = this.createBasicGroup();
+    group.set(ngeo.LayerHelper.GROUP_KEY, groupName);
+    map.addLayer(group);
+  }
+  return group;
+};
+
+
+/**
+ * Get an array of all layers in a group. The group can contain multiple levels
+ * of others groups.
+ * @param {ol.layer.Base} layer The base layer, mostly a group of layers.
+ * @return {Array.<ol.layer.Layer>} Layers.
+ * @export
+ */
+ngeo.LayerHelper.prototype.getFlatLayers = function(layer) {
+  return this.getFlatLayers_(layer, []);
+};
+
+
+/**
+ * Get an array of all layers in a group. The group can contain multiple levels
+ * of others groups.
+ * @param {ol.layer.Base} layer The base layer, mostly a group of layers.
+ * @param {Array.<ol.layer.Base>} array An array to add layers.
+ * @return {Array.<ol.layer.Layer>} Layers.
+ * @private
+ */
+ngeo.LayerHelper.prototype.getFlatLayers_ = function(layer, array) {
+  if (layer instanceof ol.layer.Group) {
+    var sublayers = layer.getLayers();
+    sublayers.forEach(function(l) {
+      this.getFlatLayers_(l, array);
+    }, this);
+  } else {
+    if (array.indexOf(layer) < 0) {
+      array.push(layer);
+    }
+  }
+  return array;
+};
+
+
+/**
+ * Get a layer that has a `layerName` property equal to a given layer name from
+ * an array of layers. If one of the layers in the array is a group, then the
+ * layers contained in that group are searched as well.
+ * @param {string} layerName The name of the layer we're looking for.
+ * @param {Array.<ol.layer.Base>} layers Layers.
+ * @return {?ol.layer.Base} Layer.
+ * @export
+ */
+ngeo.LayerHelper.prototype.getLayerByName = function(layerName, layers) {
+  var found = null;
+  layers.some(function(layer) {
+    if (layer instanceof ol.layer.Group) {
+      var sublayers = layer.getLayers().getArray();
+      found = this.getLayerByName(layerName, sublayers);
+    } else if (layer.get('layerName') === layerName) {
+      found = layer;
+    }
+    return !!found;
+  }, this);
+
+  return found;
+};
+
+
+ngeo.module.service('ngeoLayerHelper', ngeo.LayerHelper);
+
 goog.provide('ngeo.Query');
 
 goog.require('ngeo');
+goog.require('ngeo.LayerHelper');
 goog.require('ol.format.WMSGetFeatureInfo');
 goog.require('ol.source.ImageWMS');
 goog.require('ol.source.TileWMS');
@@ -109752,7 +109979,7 @@ ngeo.Query.prototype.getLayerSourceId_ = function(layer) {
 ngeo.Query.prototype.getLayerSourceIds_ = function(layer) {
   var ids = layer.get(this.sourceIdsProperty_) || [];
   goog.asserts.assertArray(ids);
-  var clone = ids.slice()
+  var clone = ids.slice();
   return clone;
 };
 
@@ -109958,7 +110185,6 @@ ngeo.popoverDirective = function() {
     scope : true,
     controller: 'NgeoPopoverController',
     link : function(scope, elem, attrs, ngeoPopoverCtrl) {
-
       ngeoPopoverCtrl.anchorElm.on('hidden.bs.popover', function() {
         /**
          * @type {{inState : Object}}
@@ -109971,7 +110197,7 @@ ngeo.popoverDirective = function() {
         ngeoPopoverCtrl.shown = true;
         ngeoPopoverCtrl.bodyElm.parent().on('click', function(e) {
           e.stopPropagation();
-        })
+        });
       });
 
       ngeoPopoverCtrl.anchorElm.popover({
@@ -109984,9 +110210,9 @@ ngeo.popoverDirective = function() {
         ngeoPopoverCtrl.anchorElm.popover('destroy');
         ngeoPopoverCtrl.anchorElm.unbind('inserted.bs.popover');
         ngeoPopoverCtrl.anchorElm.unbind('hidden.bs.popover');
-      })
+      });
     }
-  }
+  };
 };
 
 /**
@@ -110002,7 +110228,7 @@ ngeo.popoverAnchorDirective = function() {
     link: function(scope, elem, attrs, ngeoPopoverCtrl) {
       ngeoPopoverCtrl.anchorElm = elem;
     }
-  }
+  };
 };
 
 /**
@@ -110021,7 +110247,7 @@ ngeo.popoverContentDirective = function() {
         ngeoPopoverCtrl.bodyElm = transcludedElm;
       });
     }
-  }
+  };
 };
 
 /**
@@ -110067,7 +110293,7 @@ ngeo.PopoverController = function($scope) {
 
   $scope.$on('$destroy', function() {
     angular.element('body').off('click', onClick);
-  })
+  });
 };
 
 ngeo.module.controller('NgeoPopoverController', ngeo.PopoverController);
@@ -117366,8 +117592,8 @@ ngeo.sortableDirective = function($timeout) {
         function(scope, element, attrs) {
 
           var sortable = /** @type {Array} */
-              (scope.$eval(attrs['ngeoSortable']));
-          goog.asserts.assert(goog.isArray(sortable));
+              (scope.$eval(attrs['ngeoSortable'])) || [];
+          goog.asserts.assert(Array.isArray(sortable));
 
           var optionsObject = scope.$eval(attrs['ngeoSortableOptions']);
           var options = getOptions(optionsObject);
@@ -117380,7 +117606,7 @@ ngeo.sortableDirective = function($timeout) {
           scope.$watchCollection(function() {
             return sortable;
           }, function() {
-            resetUpDragDrop();
+            sortable.length && $timeout(resetUpDragDrop, 0);
           });
 
           /**
@@ -117414,6 +117640,10 @@ ngeo.sortableDirective = function($timeout) {
               dragListGroup.setDraggerElClass(options['draggerClassName']);
             }
 
+            if (options['currDragItemClassName'] !== undefined) {
+              dragListGroup.setCurrDragItemClass(options['currDragItemClassName']);
+            }
+
             /** @type {number} */
             var hoverNextItemIdx = -1;
 
@@ -117423,6 +117653,11 @@ ngeo.sortableDirective = function($timeout) {
             goog.events.listen(dragListGroup, 'dragstart', function(e) {
               hoverNextItemIdx = -1;
               hoverList = null;
+              /**
+               * Adding dynamically the width of the draggerEl to fit the currDragItem width.
+               * - > the draggerEl is clipped to the body with an absolute position.
+               */
+              angular.element(e.draggerEl).css('width', e.currDragItem.offsetWidth);
             });
 
             goog.events.listen(dragListGroup, 'dragmove', function(e) {
@@ -117813,7 +118048,7 @@ ngeo.format.FeatureHash.encodeStyleFill_ = function(fillStyle, encodedStyles, op
       opt_propertyName : 'fillColor';
   var fillColor = fillStyle.getColor();
   if (fillColor !== null) {
-    goog.asserts.assert(goog.isArray(fillColor), 'only supporting fill colors');
+    goog.asserts.assert(Array.isArray(fillColor), 'only supporting fill colors');
     var fillColorRgba = ol.color.asArray(fillColor);
     var fillColorHex = goog.color.rgbArrayToHex(fillColorRgba);
     if (encodedStyles.length > 0) {
@@ -118500,7 +118735,7 @@ ngeo.format.FeatureHash.prototype.writeFeatureText = function(feature, opt_optio
       var styles = styleFunction.call(feature, 0);
       if (styles !== null) {
         var encodedStyles = [];
-        styles = goog.isArray(styles) ? styles : [styles];
+        styles = Array.isArray(styles) ? styles : [styles];
         ngeo.format.FeatureHash.encodeStyles_(
             styles, geometry.getType(), encodedStyles);
         if (encodedStyles.length > 0) {
@@ -119665,16 +119900,6 @@ goog.require('ol.source.Vector');
 
 
 /**
- * @typedef {{depth: (Array.<number>|undefined),
- *            feature: ol.Feature,
- *            geometry: ol.geom.SimpleGeometry,
- *            index: (number|undefined),
- *            segment: Array.<ol.Extent>}}
- */
-ol.interaction.SegmentDataType;
-
-
-/**
  * @classdesc
  * Interaction for modifying feature geometries.
  *
@@ -119722,19 +119947,6 @@ ngeo.interaction.ModifyRectangle = function(options) {
    * @type {ol.layer.Vector}
    * @private
    */
-  this.vectorBoxes_ = new ol.layer.Vector({
-    source: new ol.source.Vector({
-      wrapX: !!options.wrapX
-    }),
-    style: style,
-    updateWhileAnimating: true,
-    updateWhileInteracting: true
-  });
-
-  /**
-   * @type {ol.layer.Vector}
-   * @private
-   */
   this.vectorPoints_ = new ol.layer.Vector({
     source: new ol.source.Vector({
       wrapX: !!options.wrapX
@@ -119763,6 +119975,12 @@ ngeo.interaction.ModifyRectangle = function(options) {
    */
   this.coordinate_ = null;
 
+  /**
+   * @type {Object.<number, ngeo.interaction.ModifyRectangle.CacheItem>}
+   * @private
+   */
+  this.cache_ = {};
+
   ol.events.listen(this.features_, ol.CollectionEventType.ADD,
       this.handleFeatureAdd_, this);
   ol.events.listen(this.features_, ol.CollectionEventType.REMOVE,
@@ -119781,16 +119999,13 @@ goog.inherits(ngeo.interaction.ModifyRectangle, ol.interaction.Pointer);
 ngeo.interaction.ModifyRectangle.prototype.addFeature_ = function(feature) {
   var featureGeom = feature.getGeometry();
   if (featureGeom instanceof ol.geom.Polygon) {
-    var boxSource = this.vectorBoxes_.getSource();
-    var pointSource = this.vectorPoints_.getSource();
 
-    try {
-      boxSource.addFeature(feature);
-    } catch (e) {
-      // If the feature is in the source already, its corners were already
-      // created, no need to create them again.
+    // If the feature's corners are already set, no need to set them again
+    var uid = goog.getUid(feature);
+    if (this.cache_[uid]) {
       return;
     }
+    var pointSource = this.vectorPoints_.getSource();
 
     // from each corners, create a point feature and add it to the point layer.
     // each point is then associated with 2 siblings in order to update the
@@ -119807,7 +120022,7 @@ ngeo.interaction.ModifyRectangle.prototype.addFeature_ = function(feature) {
     var pointFeatures = [];
     var cornerPoint;
     var cornerFeature;
-    goog.array.forEach(corners, function(corner) {
+    corners.forEach(function(corner) {
       cornerPoint = new ol.geom.Point(corner);
       cornerFeature = new ol.Feature({
         'corner': true,
@@ -119819,11 +120034,14 @@ ngeo.interaction.ModifyRectangle.prototype.addFeature_ = function(feature) {
 
       pointFeatures.push(cornerFeature);
     }, this);
-    feature.set('corners', pointFeatures);
+    var item = /** @type {ngeo.interaction.ModifyRectangle.CacheItem} */ ({
+      corners: pointFeatures
+    });
+    this.cache_[uid] = item;
 
     var previousFeature;
     var nextFeature;
-    goog.array.forEach(pointFeatures, function(cornerFeature, index) {
+    pointFeatures.forEach(function(cornerFeature, index) {
       previousFeature = pointFeatures[index - 1];
       if (!previousFeature) {
         previousFeature = pointFeatures[pointFeatures.length - 1];
@@ -119867,12 +120085,15 @@ ngeo.interaction.ModifyRectangle.prototype.willModifyFeatures_ = function(evt) {
  * @private
  */
 ngeo.interaction.ModifyRectangle.prototype.removeFeature_ = function(feature) {
-  var corners = feature.get('corners');
+  var uid = goog.getUid(feature);
+  var item = this.cache_[uid];
+  var corners = item.corners;
   for (var i = 0; i < corners.length; i++) {
     this.vectorPoints_.getSource().removeFeature(corners[i]);
   }
-  this.vectorBoxes_.getSource().removeFeature(feature);
   this.feature_ = null;
+  corners.length = 0;
+  delete this.cache_[uid];
 };
 
 
@@ -119880,7 +120101,6 @@ ngeo.interaction.ModifyRectangle.prototype.removeFeature_ = function(feature) {
  * @inheritDoc
  */
 ngeo.interaction.ModifyRectangle.prototype.setMap = function(map) {
-  this.vectorBoxes_.setMap(map);
   this.vectorPoints_.setMap(map);
   this.vectorPoints_.setVisible(false);
   goog.base(this, 'setMap', map);
@@ -120074,6 +120294,14 @@ ngeo.interaction.ModifyRectangle.prototype.handleUp_ = function(evt) {
   }
   return false;
 };
+
+
+/**
+ * @typedef {{
+ *     corners: Array.<ol.Feature>
+ * }}
+ */
+ngeo.interaction.ModifyRectangle.CacheItem;
 
 goog.provide('ngeo.interaction.Modify');
 
@@ -120291,9 +120519,11 @@ ngeo.interaction.Modify.prototype.removeFeature_ = function(feature) {
  */
 ngeo.interaction.Modify.prototype.getFeatureCollection_ = function(feature) {
   var features;
-  if (feature.get(ngeo.FeatureProperties.IS_CIRCLE) === true) {
+  var isCircle = feature.get(ngeo.FeatureProperties.IS_CIRCLE);
+  var isRectangle = feature.get(ngeo.FeatureProperties.IS_RECTANGLE);
+  if (isCircle === true || isCircle === 'true') {
     features = this.circleFeatures_;
-  } else if (feature.get(ngeo.FeatureProperties.IS_RECTANGLE) === true) {
+  } else if (isRectangle === true || isRectangle === 'true') {
     features = this.rectangleFeatures_;
   } else {
     features = this.otherFeatures_;
@@ -120566,11 +120796,6 @@ ngeo.interaction.Rotate.prototype.handleDown_ = function(evt) {
     if (!found) {
       feature = null;
     }
-  }
-
-  // This allows the rotation to start from anywhere on the map
-  if (!feature && this.features_.getLength() === 1) {
-    feature = this.features_.item(0);
   }
 
   if (feature) {
@@ -121346,7 +121571,7 @@ ngeo.interaction.Translate.prototype.getGeometryCenterPoint_ = function(
   var point;
 
   if (geometry instanceof ol.geom.Polygon) {
-    point = geometry.getInteriorPoint()
+    point = geometry.getInteriorPoint();
   } else if (geometry instanceof ol.geom.LineString) {
     center = geometry.getCoordinateAt(0.5);
   } else {
@@ -121809,7 +122034,7 @@ ngeo.AutoProjection.prototype.stringToCoordinates = function(str) {
       return [x, y];
     }
   }
-  return null
+  return null;
 };
 
 
@@ -122275,7 +122500,7 @@ ngeo.decorateLayer = function(layer) {
 
 ngeo.module.value('ngeoDecorateLayer', ngeo.decorateLayer);
 
-goog.provide('ngeo.Features')
+goog.provide('ngeo.Features');
 goog.require('ngeo');
 
 goog.require('ol.Collection');
@@ -122317,7 +122542,7 @@ ngeo.getBrowserLanguageFactory = function($window) {
         var nav = $window.navigator;
         var browserLanguages = nav.languages || nav.language ||
             nav.browserLanguage || nav.systemLanguage || nav.userLanguage;
-        if (!goog.isArray(browserLanguages)) {
+        if (!Array.isArray(browserLanguages)) {
           browserLanguages = [browserLanguages];
         }
         browserLanguages = browserLanguages.map(function(item) {
@@ -122336,223 +122561,6 @@ ngeo.getBrowserLanguageFactory = function($window) {
 
 
 ngeo.module.factory('ngeoGetBrowserLanguage', ngeo.getBrowserLanguageFactory);
-
-goog.provide('ngeo.LayerHelper');
-
-goog.require('ngeo');
-goog.require('ol.Collection');
-goog.require('ol.array');
-goog.require('ol.format.WMTSCapabilities');
-goog.require('ol.layer.Group');
-goog.require('ol.layer.Image');
-goog.require('ol.layer.Tile');
-goog.require('ol.source.ImageWMS');
-goog.require('ol.source.WMTS');
-
-
-/**
- * Provides help functions that helps you to create and manage layers.
- * @param {angular.$q} $q Angular promises/deferred service.
- * @param {angular.$http} $http Angular http service.
- * @constructor
- * @ngdoc service
- * @ngname ngeoLayerHelper
- * @ngInject
- */
-ngeo.LayerHelper = function($q, $http) {
-
-  /**
-   * @type {angular.$q}
-   * @private
-   */
-  this.$q_ = $q;
-
-  /**
-   * @type {angular.$http}
-   * @private
-   */
-  this.$http_ = $http;
-};
-
-
-/**
- * @const
- */
-ngeo.LayerHelper.GROUP_KEY = 'groupName';
-
-
-/**
- * Create and return a basic WMS layer with only a source URL and a dot
- * separated layers names (see {@link ol.source.ImageWMS}).
- * @param {string} sourceURL The source URL.
- * @param {string} sourceLayersName A dot separated names string.
- * @return {ol.layer.Image} WMS Layer.
- * @export
- */
-ngeo.LayerHelper.prototype.createBasicWMSLayer = function(sourceURL,
-    sourceLayersName) {
-  var layer = new ol.layer.Image({
-    source: new ol.source.ImageWMS({
-      url: sourceURL,
-      params: {'LAYERS': sourceLayersName}
-    })
-  });
-  return layer;
-};
-
-
-/**
- * Create and return a promise that provides a WMTS layer with source on
- * success, no layer else.
- * The WMTS layer source will be configured by the capabilities that are
- * loaded from the given capabilitiesUrl.
- * The style object described in the capabilities for this layer will be added
- * as key 'capabilitiesStyles' as param of the new layer.
- * @param {string} capabilitiesURL The getCapabilities url.
- * @param {string} layerName The name of the layer.
- * @return {angular.$q.Promise} A Promise with a layer (with source) on success,
- *     no layer else.
- * @export
- */
-ngeo.LayerHelper.prototype.createWMTSLayerFromCapabilitites = function(
-    capabilitiesURL, layerName) {
-  var parser = new ol.format.WMTSCapabilities();
-  var layer = new ol.layer.Tile();
-  var $q = this.$q_;
-
-  return this.$http_.get(capabilitiesURL).then(function(response) {
-    var result;
-    if (response.data) {
-      result = parser.read(response.data);
-    }
-    if (result !== undefined) {
-      var options = ol.source.WMTS.optionsFromCapabilities(result,
-          {layer: layerName, requestEncoding: 'REST'});
-      layer.setSource(new ol.source.WMTS(options));
-
-      // Add styles from capabilities as param of the layer
-      var layers = result['Contents']['Layer'];
-      var l = ol.array.find(layers, function(elt, index, array) {
-        return elt['Identifier'] == layerName;
-      });
-      layer.set('capabilitiesStyles', l['Style']);
-
-      return $q.resolve(layer);
-    }
-    return $q.reject('Failed to get WMTS capabilities from ' +
-        capabilitiesURL);
-  });
-};
-
-
-/**
- * Create and return an ol.layer.Group. You can pass a collection of layers to
- * directly add them in the returned group.
- * @param {ol.Collection.<ol.layer.Base>=} opt_layers The layer to add to the
- * returned Group.
- * @return {ol.layer.Group} Layer group.
- * @export
- */
-ngeo.LayerHelper.prototype.createBasicGroup = function(opt_layers) {
-  var group = new ol.layer.Group();
-  if (goog.isDefAndNotNull(opt_layers)) {
-    group.setLayers(opt_layers);
-  }
-  return group;
-};
-
-
-/**
- * Retrieve (or create if it doesn't exist) and return a group of layer from
- * the base array of layers of a map. The given name is used as unique
- * identifier. If the group is created, it will be automatically added to
- * the map.
- * @param {ol.Map} map A map.
- * @param {string} groupName The name of the group.
- * @return {ol.layer.Group} The group corresponding to the given name.
- * @export
- */
-ngeo.LayerHelper.prototype.getGroupFromMap = function(map, groupName) {
-  var groups = map.getLayerGroup().getLayers();
-  var group;
-  groups.getArray().some(function(exitingGroup) {
-    if (exitingGroup.get(ngeo.LayerHelper.GROUP_KEY) === groupName) {
-      group = /** @type {ol.layer.Group} */ (exitingGroup);
-      return true;
-    } else {
-      return false;
-    }
-  });
-  if (!group) {
-    group = this.createBasicGroup();
-    group.set(ngeo.LayerHelper.GROUP_KEY, groupName);
-    map.addLayer(group);
-  }
-  return group;
-};
-
-
-/**
- * Get an array of all layers in a group. The group can contain multiple levels
- * of others groups.
- * @param {ol.layer.Base} layer The base layer, mostly a group of layers.
- * @return {Array.<ol.layer.Layer>} Layers.
- * @export
- */
-ngeo.LayerHelper.prototype.getFlatLayers = function(layer) {
-  return this.getFlatLayers_(layer, []);
-};
-
-
-/**
- * Get an array of all layers in a group. The group can contain multiple levels
- * of others groups.
- * @param {ol.layer.Base} layer The base layer, mostly a group of layers.
- * @param {Array.<ol.layer.Base>} array An array to add layers.
- * @return {Array.<ol.layer.Layer>} Layers.
- * @private
- */
-ngeo.LayerHelper.prototype.getFlatLayers_ = function(layer, array) {
-  if (layer instanceof ol.layer.Group) {
-    var sublayers = layer.getLayers();
-    sublayers.forEach(function(l) {
-      this.getFlatLayers_(l, array);
-    }, this);
-  } else {
-    if (array.indexOf(layer) < 0) {
-      array.push(layer);
-    }
-  }
-  return array;
-};
-
-
-/**
- * Get a layer that has a `layerName` property equal to a given layer name from
- * an array of layers. If one of the layers in the array is a group, then the
- * layers contained in that group are searched as well.
- * @param {string} layerName The name of the layer we're looking for.
- * @param {Array.<ol.layer.Base>} layers Layers.
- * @return {?ol.layer.Base} Layer.
- * @export
- */
-ngeo.LayerHelper.prototype.getLayerByName = function(layerName, layers) {
-  var found = null;
-  layers.some(function(layer) {
-    if (layer instanceof ol.layer.Group) {
-      var sublayers = layer.getLayers().getArray();
-      found = this.getLayerByName(layerName, sublayers);
-    } else if (layer.get('layerName') === layerName) {
-      found = layer;
-    }
-    return !!found;
-  }, this);
-
-  return found;
-};
-
-
-ngeo.module.service('ngeoLayerHelper', ngeo.LayerHelper);
 
 goog.provide('ngeo.Location');
 goog.provide('ngeo.MockLocationProvider');
@@ -123379,9 +123387,9 @@ ngeo.Print.prototype.encodeVectorLayer_ = function(arr, layer, resolution) {
     /**
      * @type {Array<ol.style.Style>}
      */
-    var styles = (styleData !== null && !goog.isArray(styleData)) ?
+    var styles = (styleData !== null && !Array.isArray(styleData)) ?
         [styleData] : styleData;
-    goog.asserts.assert(goog.isArray(styles));
+    goog.asserts.assert(Array.isArray(styles));
 
     if (styles !== null && styles.length > 0) {
       var isOriginalFeatureAdded = false;
@@ -123402,7 +123410,7 @@ ngeo.Print.prototype.encodeVectorLayer_ = function(arr, layer, resolution) {
             isOriginalFeatureAdded = true;
           }
         } else {
-          var styledFeature = originalFeature.clone()
+          var styledFeature = originalFeature.clone();
           styledFeature.setGeometry(geometry);
           geojsonFeature = geojsonFormat.writeFeatureObject(styledFeature);
           geometry = styledFeature.getGeometry();
@@ -123498,7 +123506,7 @@ ngeo.Print.prototype.encodeVectorStyle_ = function(object, geometryType, style, 
  */
 ngeo.Print.prototype.encodeVectorStyleFill_ = function(symbolizer, fillStyle) {
   var fillColor = fillStyle.getColor();
-  goog.asserts.assert(goog.isArray(fillColor), 'only supporting fill colors');
+  goog.asserts.assert(Array.isArray(fillColor), 'only supporting fill colors');
   if (fillColor !== null) {
     var fillColorRgba = ol.color.asArray(fillColor);
     symbolizer.fillColor = goog.color.rgbArrayToHex(fillColorRgba);
@@ -123714,7 +123722,7 @@ ngeo.Print.prototype.encodeTextStyle_ = function(symbolizers, textStyle) {
     if (fillStyle !== null) {
       var fillColor = fillStyle.getColor();
       goog.asserts.assert(
-          goog.isArray(fillColor), 'only supporting fill colors');
+          Array.isArray(fillColor), 'only supporting fill colors');
       var fillColorRgba = ol.color.asArray(fillColor);
       symbolizer.fontColor = goog.color.rgbArrayToHex(fillColorRgba);
     }
