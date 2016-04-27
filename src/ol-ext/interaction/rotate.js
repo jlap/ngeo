@@ -253,7 +253,9 @@ ngeo.interaction.Rotate.prototype.handleDown_ = function(evt) {
         return feature;
       }, undefined);
 
-  if (feature) {
+  if (this.features_.getLength() === 1) {
+    feature = this.features_.item(0);
+  } else if (feature) {
     var found = false;
     this.features_.forEach(function(f) {
       if (goog.getUid(f) == goog.getUid(feature)) {
