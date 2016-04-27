@@ -37,8 +37,6 @@ app.MainController = function() {
               [-9e6, 4e6], [-11e6, 4e6], [-11e6, 6e6], [-9e6, 6e6]
   ]]);
 
-  rectangle.rotate(-0.3, rectangle.getInteriorPoint().getCoordinates());
-
   /**
    * @type {ol.Collection.<ol.Feature>}
    * @export
@@ -47,8 +45,7 @@ app.MainController = function() {
 
   this.features.push(new ol.Feature({
     geometry: rectangle,
-    'isRectangle': true,
-    'angle': -0.3
+    'isRectangle': true
   }));
 
   var style = (function() {
@@ -78,7 +75,7 @@ app.MainController = function() {
         image: new ol.style.Circle({
           radius: 7,
           fill: new ol.style.Fill({
-            color: [0, 153, 255, 0.2]
+            color: [0, 153, 255, 1]
           }),
           stroke: new ol.style.Stroke({
             color: [255, 255, 255, 0.75],
