@@ -114,8 +114,8 @@ app.MainController = function() {
     }));
 
   var interaction = this.interaction;
-  map.addInteraction(interaction);
   interaction.setActive(true);
+  map.addInteraction(interaction);
 
 };
 

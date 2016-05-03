@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>JSDoc: Class: mapDirective <small>directive:ngeoMap</small></title>
+    <title>JSDoc: Class: RotateEvent</title>
 
     <script src="scripts/prettify/prettify.js"> </script>
     <script src="scripts/prettify/lang-css.js"> </script>
@@ -17,7 +17,7 @@
 
 <div id="main">
 
-    <h1 class="page-title">Class: mapDirective <small>directive:ngeoMap</small></h1>
+    <h1 class="page-title">Class: RotateEvent</h1>
 
     
 
@@ -28,9 +28,12 @@
 
 <header>
     
-        <h2 id="mapDirective">
-            <span class="ancestors">ngeo.</span>mapDirective
+        <h2 id="RotateEvent">
+            <span class="ancestors">ngeo.</span>RotateEvent
         </h2>
+        
+            <div class="class-description"><p>Events emitted by <a href="ngeo.interaction.Rotate.html"><code>ngeo.interaction.Rotate</code></a> instances are
+instances of this type.</p></div>
         
     
 </header>
@@ -41,21 +44,15 @@
         
 
     
+    <h2>Constructor</h2>
+    
 
-    <h4 class="name" id="mapDirective"><span class="type-signature"></span>new mapDirective<span class="signature">()</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="RotateEvent"><span class="type-signature"></span>new RotateEvent<span class="signature">(type, feature)</span><span class="type-signature"></span></h4>
 
     
 
 
 
-<div class="description">
-    <p>Provides a directive used to insert a user-defined OpenLayers
-map in the DOM. The directive does not create an isolate scope.</p>
-<p>Example:</p>
-<pre class="prettyprint source"><code> &lt;div ngeo-map=&quot;ctrl.map&quot;>&lt;/div></code></pre><p>See our live examples:
-<code>../examples/permalink.html</code>
-<code>../examples/simple.html</code></p>
-</div>
 
 
 
@@ -64,10 +61,7 @@ map in the DOM. The directive does not create an isolate scope.</p>
 
 
 
-
-
-
-    <h5>HTML attributes:</h5>
+    <h5>Parameters:</h5>
     
 
 <table class="params">
@@ -92,15 +86,10 @@ map in the DOM. The directive does not create an isolate scope.</p>
 
         <tr>
             
-                <td class="name"><code>ngeo-map</code></td>
+                <td class="name"><code>type</code></td>
             
 
             <td class="type">
-            
-                
-<span class="param-type"><a href="http://openlayers.org/en/master/apidoc/ol.Map.html">ol.Map</a></span>
-
-
             
             </td>
 
@@ -108,12 +97,243 @@ map in the DOM. The directive does not create an isolate scope.</p>
 
             
 
-            <td class="description last">The map.</td>
+            <td class="description last"><p>Type.</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>feature</code></td>
+            
+
+            <td class="type">
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>The feature rotated.</p></td>
         </tr>
 
     
     </tbody>
 </table>
+
+
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="implements">Implements:</dt>
+    <dd class="implements"><ul>
+        
+            <li><a href="ngeox.RotateEvent.html">ngeox.RotateEvent</a></li>
+        
+    </ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+    
+        <a href="https://github.com/camptocamp/ngeo/blob/master/src/ol-ext/interaction/rotate.js">src/ol-ext/interaction/rotate.js</a>,
+        <a href="https://github.com/camptocamp/ngeo/blob/master/src/ol-ext/interaction/rotate.js#L45">line 45</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+    </div>
+
+    
+        <h3 class="subsection-title">Extends</h3>
+
+        
+
+
+    <ul>
+        <li><a href="http://openlayers.org/en/master/apidoc/ol.events.Event.html">ol.events.Event</a></li>
+    </ul>
+
+
+    
+
+    
+
+    
+
+     
+
+    
+
+    
+        <h3 class="subsection-title">Members</h3>
+
+        
+            
+<h4 class="name" id="feature"><span class="type-signature"></span>feature<span class="type-signature"> :<a href="http://openlayers.org/en/master/apidoc/ol.Feature.html">ol.Feature</a></span></h4>
+
+
+
+
+<div class="description">
+    <p>The feature being rotated.</p>
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type"><a href="http://openlayers.org/en/master/apidoc/ol.Feature.html">ol.Feature</a></span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="implements">Implements:</dt>
+    <dd class="implements"><ul>
+        
+            <li><a href="ngeox.RotateEvent.html#feature">ngeox.RotateEvent#feature</a></li>
+        
+    </ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+    
+        <a href="https://github.com/camptocamp/ngeo/blob/master/src/ol-ext/interaction/rotate.js">src/ol-ext/interaction/rotate.js</a>,
+        <a href="https://github.com/camptocamp/ngeo/blob/master/src/ol-ext/interaction/rotate.js#L54">line 54</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+        
+    
+
+    
+
+    
+
+    
+        <h3 class="subsection-title">Events</h3>
+
+        
+            
+
+    
+
+    <h4 class="name" id="event:rotateend">rotateend</h4>
+
+    
+
+
+
+<div class="description">
+    <p>Triggered upon rotate draw end</p>
+</div>
+
+
+
+
+
+
+
+
+
 
 
 
@@ -150,8 +370,8 @@ map in the DOM. The directive does not create an isolate scope.</p>
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
     
-        <a href="https://github.com/camptocamp/ngeo/blob/master/src/directives/map.js">src/directives/map.js</a>,
-        <a href="https://github.com/camptocamp/ngeo/blob/master/src/directives/map.js#L26">line 26</a>
+        <a href="https://github.com/camptocamp/ngeo/blob/master/src/ol-ext/interaction/rotate.js">src/ol-ext/interaction/rotate.js</a>,
+        <a href="https://github.com/camptocamp/ngeo/blob/master/src/ol-ext/interaction/rotate.js#L25">line 25</a>
     </li></ul></dd>
     
 
@@ -177,25 +397,7 @@ map in the DOM. The directive does not create an isolate scope.</p>
 
 
 
-    
-    </div>
-
-    
-
-    
-
-    
-
-     
-
-    
-
-    
-
-    
-
-    
-
+        
     
 </article>
 
