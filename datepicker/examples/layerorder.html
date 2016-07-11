@@ -1,0 +1,44 @@
+      width: 250px;
+        }
+        li:hover .sortable-handle {
+          opacity: 1;
+        }
+        .sortable-handle {
+          opacity: 0.3;
+          margin-right: 10px;
+          cursor: -moz-grab;
+          cursor: -webkit-grab;
+          cursor: grab;
+        }
+        .sortable-dragger {
+          -webkit-box-shadow: 0px 2px 6px -1px rgba(0, 0, 0, 0.5);
+          box-shadow: 0px 2px 6px -1px rgba(0, 0, 0, 0.5);
+        }
+    </style>
+  </head>
+  <body ng-controller="MainController as ctrl">
+    <div id="map" ngeo-map="ctrl.map"></div>
+    <p>
+      Change order of layers on the map by changing the order of items in the
+      list below.
+      <br>
+      Hint: drag-drop elements using the handle.
+    </p>
+    <ul ngeo-sortable="ctrl.selectedLayers" ngeo-sortable-options="{handleClassName: 'sortable-handle', draggerClassName: 'sortable-dragger'}">
+      <li ng-repeat="layer in ctrl.selectedLayers">
+        <span class="sortable-handle fa fa-reorder"></span>{{layer.get('name')}}
+      </li>
+    </ul>
+    <label>
+      Add/remove the "Roads" layer:
+      <input type="checkbox" ng-model="ctrl.toggleRoadsLayer" ng-model-options="{getterSetter: true}"/>
+    <label>
+      <p id="desc">This example shows how to use the <code><a href="../apidoc/ngeo.sortableDirective.html" title="Read our documentation">ngeo-sortable</a></code> directive and the <code><a href="../apidoc/ngeo.SyncArrays.html" title="Read our documentation">ngeoSyncArrays</a></code> service to create a list of layers where the order of layers can be changed using drag-and-drop.</p>
+    <script src="lib/angular.min.js"></script>
+    <script src="lib/angular-gettext.min.js"></script>
+    <script src="lib/date.min.js"></script>
+    <script src="lib/ngeo.js"></script>
+    <script src="layerorder.js"></script>
+    <script src="lib/watchwatchers.js"></script>
+  </body>
+</html>
