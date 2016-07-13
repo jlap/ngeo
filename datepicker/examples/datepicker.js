@@ -10,13 +10,11 @@ app.module = angular.module('app', ['ngeo']);
 
 /**
  * @constructor
- * @param {!angularScope} $scope Angular scope.
  * @param {!ngeo.Time} ngeoTime time service.
  * @ngInject
  */
-app.MainController = function($scope, ngeoTime) {
+app.MainController = function(ngeoTime) {
 
-  var patate;
   /**
    * @type {ngeo.Time}
    * @private

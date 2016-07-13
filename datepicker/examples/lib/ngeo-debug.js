@@ -25397,9 +25397,9 @@ ol.control.FullScreen.prototype.handleFullScreenChange_ = function() {
 ol.control.FullScreen.prototype.setMap = function(map) {
   ol.control.Control.prototype.setMap.call(this, map);
   if (map) {
-    this.listenerKeys.push(
-        ol.events.listen(ol.global.document, ol.control.FullScreen.CHANGETYPE,
-          this.handleFullScreenChange_, this)
+    this.listenerKeys.push(ol.events.listen(ol.global.document,
+        ol.control.FullScreen.getChangeType_(),
+        this.handleFullScreenChange_, this)
     );
   }
 };
@@ -25473,20 +25473,26 @@ ol.control.FullScreen.exitFullScreen = function() {
 };
 
 /**
- * @type {string}
+ * @return {string} Change type.
+ * @private
  */
-ol.control.FullScreen.CHANGETYPE = (function() {
-  var body = document.body;
-  if (body.webkitRequestFullscreen) {
-    return 'webkitfullscreenchange';
-  } else if (body.mozRequestFullScreen) {
-    return 'mozfullscreenchange';
-  } else if (body.msRequestFullscreen) {
-    return 'MSFullscreenChange';
-  } else if (body.requestFullscreen) {
-    return 'fullscreenchange';
-  }
-  return undefined;
+ol.control.FullScreen.getChangeType_ = (function() {
+  var changeType;
+  return function() {
+    if (!changeType) {
+      var body = document.body;
+      if (body.webkitRequestFullscreen) {
+        changeType = 'webkitfullscreenchange';
+      } else if (body.mozRequestFullScreen) {
+        changeType = 'mozfullscreenchange';
+      } else if (body.msRequestFullscreen) {
+        changeType = 'MSFullscreenChange';
+      } else if (body.requestFullscreen) {
+        changeType = 'fullscreenchange';
+      }
+    }
+    return changeType;
+  };
 })();
 
 // FIXME should listen on appropriate pane, once it is defined
@@ -33542,7 +33548,7 @@ ol.render.Box = function(className) {
   this.endPixel_ = null;
 
 };
-goog.inherits(ol.render.Box, ol.Disposable);
+ol.inherits(ol.render.Box, ol.Disposable);
 
 
 /**
@@ -43214,7 +43220,6 @@ ol.xml.getAllTextContent_ = function(node, normalizeWhitespace, accumulator) {
   if (node.nodeType == Node.CDATA_SECTION_NODE ||
       node.nodeType == Node.TEXT_NODE) {
     if (normalizeWhitespace) {
-      // FIXME understand why goog.dom.getTextContent_ uses String here
       accumulator.push(String(node.nodeValue).replace(/(\r\n|\r|\n)/g, ''));
     } else {
       accumulator.push(node.nodeValue);
@@ -43891,14 +43896,12 @@ var define;
  * @fileoverview
  * @suppress {accessControls, ambiguousFunctionDecl, checkDebuggerStatement, checkRegExp, checkTypes, checkVars, const, constantProperty, deprecated, duplicate, es5Strict, fileoverviewTags, missingProperties, nonStandardJsDocs, strictModuleDepCheck, suspiciousCode, undefinedNames, undefinedVars, unknownDefines, uselessCode, visibility}
  */
-/*
- (c) 2015, Vladimir Agafonkin
- RBush, a JavaScript library for high-performance 2D spatial indexing of points and rectangles.
- https://github.com/mourner/rbush
-*/
-
-(function () {
+(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.rbush = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(_dereq_,module,exports){
 'use strict';
+
+module.exports = rbush;
+
+var quickselect = _dereq_('quickselect');
 
 function rbush(maxEntries, format) {
     if (!(this instanceof rbush)) return new rbush(maxEntries, format);
@@ -43926,7 +43929,7 @@ rbush.prototype = {
             result = [],
             toBBox = this.toBBox;
 
-        if (!intersects(bbox, node.bbox)) return result;
+        if (!intersects(bbox, node)) return result;
 
         var nodesToSearch = [],
             i, len, child, childBBox;
@@ -43935,7 +43938,7 @@ rbush.prototype = {
             for (i = 0, len = node.children.length; i < len; i++) {
 
                 child = node.children[i];
-                childBBox = node.leaf ? toBBox(child) : child.bbox;
+                childBBox = node.leaf ? toBBox(child) : child;
 
                 if (intersects(bbox, childBBox)) {
                     if (node.leaf) result.push(child);
@@ -43954,7 +43957,7 @@ rbush.prototype = {
         var node = this.data,
             toBBox = this.toBBox;
 
-        if (!intersects(bbox, node.bbox)) return false;
+        if (!intersects(bbox, node)) return false;
 
         var nodesToSearch = [],
             i, len, child, childBBox;
@@ -43963,7 +43966,7 @@ rbush.prototype = {
             for (i = 0, len = node.children.length; i < len; i++) {
 
                 child = node.children[i];
-                childBBox = node.leaf ? toBBox(child) : child.bbox;
+                childBBox = node.leaf ? toBBox(child) : child;
 
                 if (intersects(bbox, childBBox)) {
                     if (node.leaf || contains(bbox, childBBox)) return true;
@@ -44018,16 +44021,11 @@ rbush.prototype = {
     },
 
     clear: function () {
-        this.data = {
-            children: [],
-            height: 1,
-            bbox: empty(),
-            leaf: true
-        };
+        this.data = createNode([]);
         return this;
     },
 
-    remove: function (item) {
+    remove: function (item, equalsFn) {
         if (!item) return this;
 
         var node = this.data,
@@ -44047,7 +44045,7 @@ rbush.prototype = {
             }
 
             if (node.leaf) { // check current node
-                index = node.children.indexOf(item);
+                index = findItem(item, node.children, equalsFn);
 
                 if (index !== -1) {
                     // item found, remove the item and condense tree upwards
@@ -44058,7 +44056,7 @@ rbush.prototype = {
                 }
             }
 
-            if (!goingUp && !node.leaf && contains(node.bbox, bbox)) { // go down
+            if (!goingUp && !node.leaf && contains(node, bbox)) { // go down
                 path.push(node);
                 indexes.push(i);
                 i = 0;
@@ -44078,8 +44076,8 @@ rbush.prototype = {
 
     toBBox: function (item) { return item; },
 
-    compareMinX: function (a, b) { return a[0] - b[0]; },
-    compareMinY: function (a, b) { return a[1] - b[1]; },
+    compareMinX: compareNodeMinX,
+    compareMinY: compareNodeMinY,
 
     toJSON: function () { return this.data; },
 
@@ -44107,12 +44105,7 @@ rbush.prototype = {
 
         if (N <= M) {
             // reached leaf level; return leaf
-            node = {
-                children: items.slice(left, right + 1),
-                height: 1,
-                bbox: null,
-                leaf: true
-            };
+            node = createNode(items.slice(left, right + 1));
             calcBBox(node, this.toBBox);
             return node;
         }
@@ -44125,12 +44118,9 @@ rbush.prototype = {
             M = Math.ceil(N / Math.pow(M, height - 1));
         }
 
-        node = {
-            children: [],
-            height: height,
-            bbox: null,
-            leaf: false
-        };
+        node = createNode([]);
+        node.leaf = false;
+        node.height = height;
 
         // split the items into M mostly square tiles
 
@@ -44173,8 +44163,8 @@ rbush.prototype = {
 
             for (i = 0, len = node.children.length; i < len; i++) {
                 child = node.children[i];
-                area = bboxArea(child.bbox);
-                enlargement = enlargedArea(bbox, child.bbox) - area;
+                area = bboxArea(child);
+                enlargement = enlargedArea(bbox, child) - area;
 
                 // choose entry with the least area enlargement
                 if (enlargement < minEnlargement) {
@@ -44200,7 +44190,7 @@ rbush.prototype = {
     _insert: function (item, level, isNode) {
 
         var toBBox = this.toBBox,
-            bbox = isNode ? item.bbox : toBBox(item),
+            bbox = isNode ? item : toBBox(item),
             insertPath = [];
 
         // find the best node for accommodating the item, saving all nodes along the path too
@@ -44208,7 +44198,7 @@ rbush.prototype = {
 
         // put the item into the node
         node.children.push(item);
-        extend(node.bbox, bbox);
+        extend(node, bbox);
 
         // split on node overflow; propagate upwards if necessary
         while (level >= 0) {
@@ -44233,14 +44223,9 @@ rbush.prototype = {
 
         var splitIndex = this._chooseSplitIndex(node, m, M);
 
-        var newNode = {
-            children: node.children.splice(splitIndex, node.children.length - splitIndex),
-            height: node.height,
-            bbox: null,
-            leaf: false
-        };
-
-        if (node.leaf) newNode.leaf = true;
+        var newNode = createNode(node.children.splice(splitIndex, node.children.length - splitIndex));
+        newNode.height = node.height;
+        newNode.leaf = node.leaf;
 
         calcBBox(node, this.toBBox);
         calcBBox(newNode, this.toBBox);
@@ -44251,12 +44236,9 @@ rbush.prototype = {
 
     _splitRoot: function (node, newNode) {
         // split root node
-        this.data = {
-            children: [node, newNode],
-            height: node.height + 1,
-            bbox: null,
-            leaf: false
-        };
+        this.data = createNode([node, newNode]);
+        this.data.height = node.height + 1;
+        this.data.leaf = false;
         calcBBox(this.data, this.toBBox);
     },
 
@@ -44318,13 +44300,13 @@ rbush.prototype = {
 
         for (i = m; i < M - m; i++) {
             child = node.children[i];
-            extend(leftBBox, node.leaf ? toBBox(child) : child.bbox);
+            extend(leftBBox, node.leaf ? toBBox(child) : child);
             margin += bboxMargin(leftBBox);
         }
 
         for (i = M - m - 1; i >= m; i--) {
             child = node.children[i];
-            extend(rightBBox, node.leaf ? toBBox(child) : child.bbox);
+            extend(rightBBox, node.leaf ? toBBox(child) : child);
             margin += bboxMargin(rightBBox);
         }
 
@@ -44334,7 +44316,7 @@ rbush.prototype = {
     _adjustParentBBoxes: function (bbox, path, level) {
         // adjust bboxes along the given tree path
         for (var i = level; i >= 0; i--) {
-            extend(path[i].bbox, bbox);
+            extend(path[i], bbox);
         }
     },
 
@@ -44364,71 +44346,97 @@ rbush.prototype = {
         this.compareMinX = new Function('a', 'b', compareArr.join(format[0]));
         this.compareMinY = new Function('a', 'b', compareArr.join(format[1]));
 
-        this.toBBox = new Function('a', 'return [a' + format.join(', a') + '];');
+        this.toBBox = new Function('a',
+            'return {minX: a' + format[0] +
+            ', minY: a' + format[1] +
+            ', maxX: a' + format[2] +
+            ', maxY: a' + format[3] + '};');
     }
 };
 
+function findItem(item, items, equalsFn) {
+    if (!equalsFn) return items.indexOf(item);
+
+    for (var i = 0; i < items.length; i++) {
+        if (equalsFn(item, items[i])) return i;
+    }
+    return -1;
+}
 
 // calculate node's bbox from bboxes of its children
 function calcBBox(node, toBBox) {
-    node.bbox = distBBox(node, 0, node.children.length, toBBox);
+    distBBox(node, 0, node.children.length, toBBox, node);
 }
 
 // min bounding rectangle of node children from k to p-1
-function distBBox(node, k, p, toBBox) {
-    var bbox = empty();
+function distBBox(node, k, p, toBBox, destNode) {
+    if (!destNode) destNode = createNode(null);
+    destNode.minX = Infinity;
+    destNode.minY = Infinity;
+    destNode.maxX = -Infinity;
+    destNode.maxY = -Infinity;
 
     for (var i = k, child; i < p; i++) {
         child = node.children[i];
-        extend(bbox, node.leaf ? toBBox(child) : child.bbox);
+        extend(destNode, node.leaf ? toBBox(child) : child);
     }
 
-    return bbox;
+    return destNode;
 }
 
-function empty() { return [Infinity, Infinity, -Infinity, -Infinity]; }
-
 function extend(a, b) {
-    a[0] = Math.min(a[0], b[0]);
-    a[1] = Math.min(a[1], b[1]);
-    a[2] = Math.max(a[2], b[2]);
-    a[3] = Math.max(a[3], b[3]);
+    a.minX = Math.min(a.minX, b.minX);
+    a.minY = Math.min(a.minY, b.minY);
+    a.maxX = Math.max(a.maxX, b.maxX);
+    a.maxY = Math.max(a.maxY, b.maxY);
     return a;
 }
 
-function compareNodeMinX(a, b) { return a.bbox[0] - b.bbox[0]; }
-function compareNodeMinY(a, b) { return a.bbox[1] - b.bbox[1]; }
+function compareNodeMinX(a, b) { return a.minX - b.minX; }
+function compareNodeMinY(a, b) { return a.minY - b.minY; }
 
-function bboxArea(a)   { return (a[2] - a[0]) * (a[3] - a[1]); }
-function bboxMargin(a) { return (a[2] - a[0]) + (a[3] - a[1]); }
+function bboxArea(a)   { return (a.maxX - a.minX) * (a.maxY - a.minY); }
+function bboxMargin(a) { return (a.maxX - a.minX) + (a.maxY - a.minY); }
 
 function enlargedArea(a, b) {
-    return (Math.max(b[2], a[2]) - Math.min(b[0], a[0])) *
-           (Math.max(b[3], a[3]) - Math.min(b[1], a[1]));
+    return (Math.max(b.maxX, a.maxX) - Math.min(b.minX, a.minX)) *
+           (Math.max(b.maxY, a.maxY) - Math.min(b.minY, a.minY));
 }
 
 function intersectionArea(a, b) {
-    var minX = Math.max(a[0], b[0]),
-        minY = Math.max(a[1], b[1]),
-        maxX = Math.min(a[2], b[2]),
-        maxY = Math.min(a[3], b[3]);
+    var minX = Math.max(a.minX, b.minX),
+        minY = Math.max(a.minY, b.minY),
+        maxX = Math.min(a.maxX, b.maxX),
+        maxY = Math.min(a.maxY, b.maxY);
 
     return Math.max(0, maxX - minX) *
            Math.max(0, maxY - minY);
 }
 
 function contains(a, b) {
-    return a[0] <= b[0] &&
-           a[1] <= b[1] &&
-           b[2] <= a[2] &&
-           b[3] <= a[3];
+    return a.minX <= b.minX &&
+           a.minY <= b.minY &&
+           b.maxX <= a.maxX &&
+           b.maxY <= a.maxY;
 }
 
 function intersects(a, b) {
-    return b[0] <= a[2] &&
-           b[1] <= a[3] &&
-           b[2] >= a[0] &&
-           b[3] >= a[1];
+    return b.minX <= a.maxX &&
+           b.minY <= a.maxY &&
+           b.maxX >= a.minX &&
+           b.maxY >= a.minY;
+}
+
+function createNode(children) {
+    return {
+        children: children,
+        height: 1,
+        leaf: true,
+        minX: Infinity,
+        minY: Infinity,
+        maxX: -Infinity,
+        maxY: -Infinity
+    };
 }
 
 // sort an array so that items come in groups of n unsorted items, with groups sorted between each other;
@@ -44445,32 +44453,41 @@ function multiSelect(arr, left, right, n, compare) {
         if (right - left <= n) continue;
 
         mid = left + Math.ceil((right - left) / n / 2) * n;
-        select(arr, left, right, mid, compare);
+        quickselect(arr, mid, left, right, compare);
 
         stack.push(left, mid, mid, right);
     }
 }
 
+},{"quickselect":2}],2:[function(_dereq_,module,exports){
+'use strict';
+
+module.exports = partialSort;
+
 // Floyd-Rivest selection algorithm:
-// sort an array between left and right (inclusive) so that the smallest k elements come first (unordered)
-function select(arr, left, right, k, compare) {
-    var n, i, z, s, sd, newLeft, newRight, t, j;
+// Rearrange items so that all items in the [left, k] range are smaller than all items in (k, right];
+// The k-th element will have the (k - left + 1)th smallest value in [left, right]
+
+function partialSort(arr, k, left, right, compare) {
+    left = left || 0;
+    right = right || (arr.length - 1);
+    compare = compare || defaultCompare;
 
     while (right > left) {
         if (right - left > 600) {
-            n = right - left + 1;
-            i = k - left + 1;
-            z = Math.log(n);
-            s = 0.5 * Math.exp(2 * z / 3);
-            sd = 0.5 * Math.sqrt(z * s * (n - s) / n) * (i - n / 2 < 0 ? -1 : 1);
-            newLeft = Math.max(left, Math.floor(k - i * s / n + sd));
-            newRight = Math.min(right, Math.floor(k + (n - i) * s / n + sd));
-            select(arr, newLeft, newRight, k, compare);
+            var n = right - left + 1;
+            var m = k - left + 1;
+            var z = Math.log(n);
+            var s = 0.5 * Math.exp(2 * z / 3);
+            var sd = 0.5 * Math.sqrt(z * s * (n - s) / n) * (m - n / 2 < 0 ? -1 : 1);
+            var newLeft = Math.max(left, Math.floor(k - m * s / n + sd));
+            var newRight = Math.min(right, Math.floor(k + (n - m) * s / n + sd));
+            partialSort(arr, k, newLeft, newRight, compare);
         }
 
-        t = arr[k];
-        i = left;
-        j = right;
+        var t = arr[k];
+        var i = left;
+        var j = right;
 
         swap(arr, left, k);
         if (compare(arr[right], t) > 0) swap(arr, left, right);
@@ -44500,15 +44517,12 @@ function swap(arr, i, j) {
     arr[j] = tmp;
 }
 
+function defaultCompare(a, b) {
+    return a < b ? -1 : a > b ? 1 : 0;
+}
 
-// export as AMD/CommonJS module or global variable
-if (typeof define === 'function' && define.amd) define('rbush', function () { return rbush; });
-else if (typeof module !== 'undefined') module.exports = rbush;
-else if (typeof self !== 'undefined') self.rbush = rbush;
-else window.rbush = rbush;
-
-})();
-
+},{}]},{},[1])(1)
+});
 ol.ext.rbush = module.exports;
 })();
 
@@ -44540,7 +44554,7 @@ ol.structs.RBush = function(opt_maxEntries) {
    * A mapping between the objects added to this rbush wrapper
    * and the objects that are actually added to the internal rbush.
    * @private
-   * @type {Object.<number, Object>}
+   * @type {Object.<number, ol.RBushEntry>}
    */
   this.items_ = {};
 
@@ -44563,13 +44577,15 @@ ol.structs.RBush.prototype.insert = function(extent, value) {
   if (goog.DEBUG && this.readers_) {
     throw new Error('Can not insert value while reading');
   }
-  var item = [
-    extent[0],
-    extent[1],
-    extent[2],
-    extent[3],
-    value
-  ];
+  /** @type {ol.RBushEntry} */
+  var item = {
+    minX: extent[0],
+    minY: extent[1],
+    maxX: extent[2],
+    maxY: extent[3],
+    value: value
+  };
+
   this.rbush_.insert(item);
   // remember the object that was added to the internal rbush
   goog.asserts.assert(!(goog.getUid(value) in this.items_),
@@ -44596,13 +44612,14 @@ ol.structs.RBush.prototype.load = function(extents, values) {
     var extent = extents[i];
     var value = values[i];
 
-    var item = [
-      extent[0],
-      extent[1],
-      extent[2],
-      extent[3],
-      value
-    ];
+    /** @type {ol.RBushEntry} */
+    var item = {
+      minX: extent[0],
+      minY: extent[1],
+      maxX: extent[2],
+      maxY: extent[3],
+      value: value
+    };
     items[i] = item;
     goog.asserts.assert(!(goog.getUid(value) in this.items_),
         'uid (%s) of value (%s) already exists', goog.getUid(value), value);
@@ -44644,7 +44661,8 @@ ol.structs.RBush.prototype.update = function(extent, value) {
       'uid (%s) of value (%s) does not exist', uid, value);
 
   var item = this.items_[uid];
-  if (!ol.extent.equals(item.slice(0, 4), extent)) {
+  var bbox = [item.minX, item.minY, item.maxX, item.maxY];
+  if (!ol.extent.equals(bbox, extent)) {
     if (goog.DEBUG && this.readers_) {
       throw new Error('Can not update extent while reading');
     }
@@ -44661,7 +44679,7 @@ ol.structs.RBush.prototype.update = function(extent, value) {
 ol.structs.RBush.prototype.getAll = function() {
   var items = this.rbush_.all();
   return items.map(function(item) {
-    return item[4];
+    return item.value;
   });
 };
 
@@ -44672,9 +44690,16 @@ ol.structs.RBush.prototype.getAll = function() {
  * @return {Array.<T>} All in extent.
  */
 ol.structs.RBush.prototype.getInExtent = function(extent) {
-  var items = this.rbush_.search(extent);
+  /** @type {ol.RBushEntry} */
+  var bbox = {
+    minX: extent[0],
+    minY: extent[1],
+    maxX: extent[2],
+    maxY: extent[3]
+  };
+  var items = this.rbush_.search(bbox);
   return items.map(function(item) {
-    return item[4];
+    return item.value;
   });
 };
 
@@ -44767,7 +44792,8 @@ ol.structs.RBush.prototype.clear = function() {
  */
 ol.structs.RBush.prototype.getExtent = function(opt_extent) {
   // FIXME add getExtent() to rbush
-  return this.rbush_.data.bbox;
+  var data = this.rbush_.data;
+  return [data.minX, data.minY, data.maxX, data.maxY];
 };
 
 // FIXME bulk feature upload - suppress events
@@ -46454,6 +46480,41 @@ ol.renderer.canvas.TileLayer.prototype.renderTileImages = function(context, fram
     tilesToDraw.reverse();
     pixelExtents = [];
   }
+
+  var extent = layerState.extent;
+  var clipped = extent !== undefined;
+  if (clipped) {
+    goog.asserts.assert(extent !== undefined,
+        'layerState extent is defined');
+    var topLeft = ol.extent.getTopLeft(extent);
+    var topRight = ol.extent.getTopRight(extent);
+    var bottomRight = ol.extent.getBottomRight(extent);
+    var bottomLeft = ol.extent.getBottomLeft(extent);
+
+    ol.vec.Mat4.multVec2(frameState.coordinateToPixelMatrix,
+        topLeft, topLeft);
+    ol.vec.Mat4.multVec2(frameState.coordinateToPixelMatrix,
+        topRight, topRight);
+    ol.vec.Mat4.multVec2(frameState.coordinateToPixelMatrix,
+        bottomRight, bottomRight);
+    ol.vec.Mat4.multVec2(frameState.coordinateToPixelMatrix,
+        bottomLeft, bottomLeft);
+
+    var ox = drawOffsetX || 0;
+    var oy = drawOffsetY || 0;
+    renderContext.save();
+    var cx = (renderContext.canvas.width * pixelRatio) / 2;
+    var cy = (renderContext.canvas.height * pixelRatio) / 2;
+    ol.render.canvas.rotateAtOffset(renderContext, -rotation, cx, cy);
+    renderContext.beginPath();
+    renderContext.moveTo(topLeft[0] * pixelRatio + ox, topLeft[1] * pixelRatio + oy);
+    renderContext.lineTo(topRight[0] * pixelRatio + ox, topRight[1] * pixelRatio + oy);
+    renderContext.lineTo(bottomRight[0] * pixelRatio + ox, bottomRight[1] * pixelRatio + oy);
+    renderContext.lineTo(bottomLeft[0] * pixelRatio + ox, bottomLeft[1] * pixelRatio + oy);
+    renderContext.clip();
+    ol.render.canvas.rotateAtOffset(renderContext, rotation, cx, cy);
+  }
+
   for (var i = 0, ii = tilesToDraw.length; i < ii; ++i) {
     var tile = tilesToDraw[i];
     var tileCoord = tile.getTileCoord();
@@ -46500,6 +46561,10 @@ ol.renderer.canvas.TileLayer.prototype.renderTileImages = function(context, fram
     if (!opaque) {
       renderContext.restore();
     }
+  }
+
+  if (clipped) {
+    renderContext.restore();
   }
 
   if (hasRenderListeners) {
@@ -51769,7 +51834,7 @@ ol.webgl.Context = function(canvas, gl) {
       this.handleWebGLContextRestored, this);
 
 };
-goog.inherits(ol.webgl.Context, ol.Disposable);
+ol.inherits(ol.webgl.Context, ol.Disposable);
 
 
 /**
@@ -55695,14 +55760,14 @@ ol.MapProperty = {
  *       }),
  *       layers: [
  *         new ol.layer.Tile({
- *           source: new ol.source.MapQuest({layer: 'osm'})
+ *           source: new ol.source.OSM()
  *         })
  *       ],
  *       target: 'map'
  *     });
  *
  * The above snippet creates a map using a {@link ol.layer.Tile} to display
- * {@link ol.source.MapQuest} OSM data and render it to a DOM element with the
+ * {@link ol.source.OSM} OSM data and render it to a DOM element with the
  * id `map`.
  *
  * The constructor places a viewport container (with CSS class name
@@ -57049,8 +57114,6 @@ ol.Map.createOptionsInternal = function(options) {
    */
   var keyboardEventTarget = null;
   if (options.keyboardEventTarget !== undefined) {
-    // cannot use goog.dom.getElement because its argument cannot be
-    // of type Document
     keyboardEventTarget = typeof options.keyboardEventTarget === 'string' ?
         document.getElementById(options.keyboardEventTarget) :
         options.keyboardEventTarget;
@@ -57186,7 +57249,6 @@ ol.proj.common.add();
 
 goog.provide('ol.Overlay');
 goog.provide('ol.OverlayPositioning');
-goog.provide('ol.OverlayProperty');
 
 goog.require('goog.asserts');
 goog.require('ol.events');
@@ -58288,8 +58350,6 @@ ol.control.OverviewMap.prototype.getOverviewMap = function() {
 };
 
 goog.provide('ol.control.ScaleLine');
-goog.provide('ol.control.ScaleLineProperty');
-goog.provide('ol.control.ScaleLineUnits');
 
 goog.require('goog.asserts');
 goog.require('ol.events');
@@ -59053,7 +59113,6 @@ ol.control.ZoomToExtent.prototype.handleZoomToExtent_ = function() {
 };
 
 goog.provide('ol.DeviceOrientation');
-goog.provide('ol.DeviceOrientationProperty');
 
 goog.require('ol.events');
 goog.require('ol');
@@ -59148,7 +59207,7 @@ ol.DeviceOrientation = function(opt_options) {
   this.setTracking(options.tracking !== undefined ? options.tracking : false);
 
 };
-goog.inherits(ol.DeviceOrientation, ol.Object);
+ol.inherits(ol.DeviceOrientation, ol.Object);
 
 
 /**
@@ -66557,7 +66616,6 @@ ol.format.TextFeature.prototype.writeGeometry = function(
 ol.format.TextFeature.prototype.writeGeometryText = goog.abstractMethod;
 
 goog.provide('ol.format.IGC');
-goog.provide('ol.format.IGCZ');
 
 goog.require('goog.asserts');
 goog.require('ol.Feature');
@@ -81746,7 +81804,6 @@ ol.format.WMTSCapabilities.TM_PARSERS_ = ol.xml.makeStructureNS(
 // FIXME handle geolocation not supported
 
 goog.provide('ol.Geolocation');
-goog.provide('ol.GeolocationProperty');
 
 goog.require('ol.events');
 goog.require('ol.events.EventType');
@@ -85989,7 +86046,6 @@ ol.interaction.Select.handleEvent = function(mapBrowserEvent) {
   var features = this.featureOverlay_.getSource().getFeaturesCollection();
   var deselected = [];
   var selected = [];
-  var change = false;
   if (set) {
     // Replace the currently selected feature(s) with the feature(s) at the
     // pixel, or clear the selected feature(s) if there is no feature at
@@ -86008,11 +86064,10 @@ ol.interaction.Select.handleEvent = function(mapBrowserEvent) {
             return !this.multi_;
           }
         }, this, this.layerFilter_);
-    if (selected.length > 0 && features.getLength() == 1 &&
-        features.item(0) == selected[0]) {
-      // No change
+    if (selected.length > 0 && features.getLength() == 1 && features.item(0) == selected[0]) {
+      // No change; an already selected feature is selected again
+      selected.length = 0;
     } else {
-      change = true;
       if (features.getLength() !== 0) {
         deselected = Array.prototype.concat(features.getArray());
         features.clear();
@@ -86046,11 +86101,8 @@ ol.interaction.Select.handleEvent = function(mapBrowserEvent) {
       features.remove(deselected[i]);
     }
     features.extend(selected);
-    if (selected.length > 0 || deselected.length > 0) {
-      change = true;
-    }
   }
-  if (change) {
+  if (selected.length > 0 || deselected.length > 0) {
     this.dispatchEvent(
         new ol.interaction.SelectEvent(ol.interaction.SelectEventType.SELECT,
             selected, deselected, mapBrowserEvent));
@@ -89820,110 +89872,6 @@ ol.source.OSM.ATTRIBUTION = new ol.Attribution({
       'contributors.'
 });
 
-goog.provide('ol.source.MapQuest');
-
-goog.require('goog.asserts');
-goog.require('ol.Attribution');
-goog.require('ol.source.OSM');
-goog.require('ol.source.XYZ');
-
-
-/**
- * @classdesc
- * Layer source for the MapQuest tile server.
- *
- * @constructor
- * @extends {ol.source.XYZ}
- * @param {olx.source.MapQuestOptions=} opt_options MapQuest options.
- * @api stable
- */
-ol.source.MapQuest = function(opt_options) {
-
-  var options = opt_options || {};
-  goog.asserts.assert(options.layer in ol.source.MapQuestConfig,
-      'known layer configured');
-
-  var layerConfig = ol.source.MapQuestConfig[options.layer];
-
-  /**
-   * Layer. Possible values are `osm`, `sat`, and `hyb`.
-   * @type {string}
-   * @private
-   */
-  this.layer_ = options.layer;
-
-  var url = options.url !== undefined ? options.url :
-      'https://otile{1-4}-s.mqcdn.com/tiles/1.0.0/' +
-      this.layer_ + '/{z}/{x}/{y}.jpg';
-
-  ol.source.XYZ.call(this, {
-    attributions: layerConfig.attributions,
-    cacheSize: options.cacheSize,
-    crossOrigin: 'anonymous',
-    logo: 'https://developer.mapquest.com/content/osm/mq_logo.png',
-    maxZoom: layerConfig.maxZoom,
-    reprojectionErrorThreshold: options.reprojectionErrorThreshold,
-    opaque: layerConfig.opaque,
-    tileLoadFunction: options.tileLoadFunction,
-    url: url
-  });
-
-};
-ol.inherits(ol.source.MapQuest, ol.source.XYZ);
-
-
-/**
- * @const
- * @type {ol.Attribution}
- */
-ol.source.MapQuest.TILE_ATTRIBUTION = new ol.Attribution({
-  html: 'Tiles Courtesy of <a href="http://www.mapquest.com/">MapQuest</a>'
-});
-
-
-/**
- * @type {Object.<string, {maxZoom: number, opaque: boolean, attributions: (Array.<ol.Attribution>)}>}
- */
-ol.source.MapQuestConfig = {
-  'osm': {
-    maxZoom: 19,
-    opaque: true,
-    attributions: [
-      ol.source.MapQuest.TILE_ATTRIBUTION,
-      ol.source.OSM.ATTRIBUTION
-    ]
-  },
-  'sat': {
-    maxZoom: 18,
-    opaque: true,
-    attributions: [
-      ol.source.MapQuest.TILE_ATTRIBUTION,
-      new ol.Attribution({
-        html: 'Portions Courtesy NASA/JPL-Caltech and ' +
-            'U.S. Depart. of Agriculture, Farm Service Agency'
-      })
-    ]
-  },
-  'hyb': {
-    maxZoom: 18,
-    opaque: false,
-    attributions: [
-      ol.source.MapQuest.TILE_ATTRIBUTION,
-      ol.source.OSM.ATTRIBUTION
-    ]
-  }
-};
-
-
-/**
- * Get the layer of the source, either `osm`, `sat`, or `hyb`.
- * @return {string} Layer.
- * @api
- */
-ol.source.MapQuest.prototype.getLayer = function() {
-  return this.layer_;
-};
-
 goog.provide('ol.ext.pixelworks');
 /** @typedef {function(*)} */
 ol.ext.pixelworks;
@@ -90867,8 +90815,8 @@ ol.source.Stamen = function(options) {
     attributions: ol.source.Stamen.ATTRIBUTIONS,
     cacheSize: options.cacheSize,
     crossOrigin: 'anonymous',
-    maxZoom: providerConfig.maxZoom,
-    minZoom: providerConfig.minZoom,
+    maxZoom: options.maxZoom != undefined ? options.maxZoom : providerConfig.maxZoom,
+    minZoom: options.minZoom != undefined ? options.minZoom : providerConfig.minZoom,
     opaque: layerConfig.opaque,
     reprojectionErrorThreshold: options.reprojectionErrorThreshold,
     tileLoadFunction: options.tileLoadFunction,
@@ -92356,7 +92304,6 @@ ol.tilegrid.WMTS.createFromCapabilitiesMatrixSet = function(matrixSet, opt_exten
 };
 
 goog.provide('ol.source.WMTS');
-goog.provide('ol.source.WMTSRequestEncoding');
 
 goog.require('goog.asserts');
 goog.require('ol.TileUrlFunction');
@@ -93966,11 +93913,16 @@ goog.require('goog.object');
  *
  *     var selection = d3.select('#element_id');
  *     var profile = ngeo.profile({
- *      elevationExtractor: {
- *        z: function (item) {return item['values']['z'];)},
- *        dist: function (item) {return item['dist'];)}
- *      },
- *      hoverCallback: function(point, dist, xUnits, ele, yUnits) {
+ *      distanceExtractor: function (item) {return item['dist'];)}
+ *      linesConfiguration: {
+ *        'lineZ1': {
+ *          zExtractor: function (item) {return item['values']['z1'];)}
+ *        },
+ *        'lineZ2': {
+ *          color: '#00F',
+ *          zExtractor: function (item) {return item['values']['z2'];)}
+ *        }
+ *      hoverCallback: function(point, dist, xUnits, elevations, yUnits) {
  *        console.log(point.x, point.y);
  *      },
  *      outCallback: function() {
@@ -93979,9 +93931,15 @@ goog.require('goog.object');
  *     selection.datum(data).call(profile);
  *
  * The selection data must be an array.
- * The layout for the items of this array is unconstrained: the elevation
- * and distance values are extracted using the elevationExtractor config
- * option. Optionally, POIs can be displayed and depend on a poiExtractor
+ * The layout for the items of this array is unconstrained: the distance values
+ * is extracted using the distanceExtractor config option and multiples z values
+ * can be displayed by providing multiple linesConfiguration with its specific
+ * zExtractor.
+ * Optionally you can provide a color in your linesConfiguration. A line without
+ * color will be red. Each linesConfiguration name is used as class for its
+ * respective line. So you can pass a styleDefs config option (inline css) to
+ * customize the line or all the chart.
+ * Optionally, POIs can be displayed and depend on a poiExtractor
  * config option.
  *
  * The data below will work for the above example:
@@ -93989,7 +93947,7 @@ goog.require('goog.object');
  *     [
  *         {
  *             "y": 199340,
- *             "values": {"z": 788.7},
+ *             "values": {"z1": 788.7, "z2": 774.2},
  *             "dist": 0.0,
  *             "x": 541620
  *         }, ...
@@ -94016,7 +93974,7 @@ ngeo.profile = function(options) {
 
   /**
    * Hover callback function.
-   * @type {function(Object, number, string, number, string)}
+   * @type {function(Object, number, string, Object.<string, number>, string)}
    */
   var hoverCallback = options.hoverCallback !== undefined ?
       options.hoverCallback : goog.nullFunction;
@@ -94029,15 +93987,25 @@ ngeo.profile = function(options) {
       options.outCallback : goog.nullFunction;
 
   /**
-   * Elevation data extractor used to get the dist and elevation values.
+   * Distance data extractor used to get the dist values.
    */
-  var elevationExtractor = options.elevationExtractor;
+  var distanceExtractor = options.distanceExtractor;
+
+  /**
+   * Line configuration object.
+   */
+  var linesConfiguration = options.linesConfiguration;
+
+  /**
+   * Number of differents configurations for the line.
+   */
+  var numberOfLines = Object.keys(linesConfiguration).length;
 
   /**
    * Method to get the coordinate in pixels from a distance.
    */
   var bisectDistance = d3.bisector(function(d) {
-    return elevationExtractor.dist(d);
+    return distanceExtractor(d);
   }).left;
 
   /**
@@ -94055,6 +94023,21 @@ ngeo.profile = function(options) {
    */
   var poiLabelAngle = options.poiLabelAngle !== undefined ?
       options.poiLabelAngle : -60;
+
+  /**
+   * @type {Object.<string, string>}
+   */
+  var i18n = options.i18n || {};
+
+  /**
+   * @type {string}
+   */
+  var xAxisLabel = (i18n.xAxis || 'Distance');
+
+  /**
+   * @type {string}
+   */
+  var yAxisLabel = (i18n.yAxis || 'Elevation');
 
   /**
    * @type {ngeox.profile.ProfileFormatter}
@@ -94154,12 +94137,10 @@ ngeo.profile = function(options) {
 
   var profile = function(selection) {
     selection.each(function(data) {
+      d3.select(this).selectAll('svg').remove();
       if (data === undefined) {
-        d3.select(this).selectAll('svg').remove();
         return;
       }
-
-      var extractor = elevationExtractor;
 
       width = Math.max(this.clientWidth - margin.right - margin.left, 0);
       x = d3.scale.linear().range([0, width]);
@@ -94172,21 +94153,18 @@ ngeo.profile = function(options) {
           .scale(y)
           .orient('left');
 
-      var area = d3.svg.area()
-          .x(function(d) {
-            return x(extractor.dist(d));
-          })
-          .y0(height)
-          .y1(function(d) {
-            return y(extractor.z(d));
-          });
-      var line = d3.svg.line()
-          .x(function(d) {
-            return x(extractor.dist(d));
-          })
-          .y(function(d) {
-            return y(extractor.z(d));
-          });
+      var area;
+      if (numberOfLines === 1) {
+        area = d3.svg.area()
+            .x(function(d) {
+              return x(distanceExtractor(d));
+            })
+            .y0(height)
+            .y1(function(d) {
+              var firstLineName =  Object.keys(linesConfiguration)[0];
+              return y(linesConfiguration[firstLineName].zExtractor(d));
+            });
+      }
 
       // Select the svg element, if it exists.
       svg = d3.select(this).selectAll('svg').data([data]);
@@ -94202,11 +94180,11 @@ ngeo.profile = function(options) {
       clearPois();
 
       gEnter.style('font', '11px Arial');
-      gEnter.append('path').attr('class', 'area')
-          .style('fill', 'rgba(222, 222, 222, 0.5)');
-      gEnter.append('path').attr('class', 'line')
-          .style('stroke', '#F00')
-          .style('fill', 'none');
+
+      if (numberOfLines === 1) {
+        gEnter.append('path').attr('class', 'area')
+            .style('fill', 'rgba(222, 222, 222, 0.5)');
+      }
 
       gEnter.insert('g', ':first-child')
           .attr('class', 'grid-y');
@@ -94232,7 +94210,7 @@ ngeo.profile = function(options) {
           .attr('dy', '.75em')
           .attr('transform', 'rotate(-90)')
           .style('fill', 'grey')
-          .text('elevation (m)');
+          .text(yAxisLabel + ' [m]');
 
         gEnter.append('g')
           .attr('class', 'metas')
@@ -94240,10 +94218,6 @@ ngeo.profile = function(options) {
       }
 
       gEnter.append('g').attr('class', 'pois');
-
-      var yHover = gEnter.append('g').attr('class', 'y grid-hover');
-      yHover.append('svg:line').attr('stroke-dasharray', '5,5');
-      yHover.append('text');
 
       var xHover = gEnter.append('g').attr('class', 'x grid-hover');
       xHover.append('svg:line').attr('stroke-dasharray', '5,5');
@@ -94266,13 +94240,28 @@ ngeo.profile = function(options) {
               margin.top + ')');
 
       xDomain = d3.extent(data, function(d) {
-        return extractor.dist(d);
+        return distanceExtractor(d);
       });
       x.domain(xDomain);
 
-      var yDomain = d3.extent(data, function(d) {
-        return extractor.z(d);
-      });
+      // Return an array with the min and max value of the min/max values of
+      // each lines.
+      var yDomain = function() {
+        var elevationsValues = [];
+        var extent, name;
+        // Get min/max values (extent) of each lines.
+        for (name in linesConfiguration) {
+          extent = d3.extent(data, function(d) {
+            return linesConfiguration[name].zExtractor(d);
+          });
+          elevationsValues = elevationsValues.concat(extent);
+        }
+        return [
+          Math.min.apply(null, elevationsValues),
+          Math.max.apply(null, elevationsValues)
+        ];
+      }();
+
       y.domain(yDomain);
 
       // set the ratio according to the horizontal distance
@@ -94285,12 +94274,39 @@ ngeo.profile = function(options) {
       }
 
       // Update the area path.
-      g.select('.area')
-          .transition()
-          .attr('d', area);
-      g.select('.line')
-          .transition()
-          .attr('d', line);
+      if (numberOfLines === 1) {
+        g.select('.area')
+            .transition()
+            .attr('d', area);
+      }
+
+      // Set style and update the lines paths and y hover guides for each lines.
+      var line, name, yHover;
+      for (name in linesConfiguration) {
+        // Set style of each line and add a class with its respective name.
+        gEnter.append('path').attr('class', 'line ' + name)
+            .style('stroke', linesConfiguration[name].color || '#F00')
+            .style('fill', 'none');
+
+        // Set y hover guides
+        yHover = gEnter.append('g').attr('class', 'y grid-hover ' + name);
+        yHover.append('svg:line').attr('stroke-dasharray', '5,5');
+        yHover.append('text');
+
+        // Configure the d3 line.
+        line = d3.svg.line()
+            .x(function(d) {
+              return x(distanceExtractor(d));
+            })
+            .y(function(d) {
+              return y(linesConfiguration[name].zExtractor(d));
+            });
+
+        // Update path for the line.
+        g.select('.line.' + name)
+            .transition()
+            .attr('d', line);
+      }
 
       if (xDomain[1] > 2000) {
         xFactor = 1000;
@@ -94317,7 +94333,7 @@ ngeo.profile = function(options) {
           .call(xAxis);
 
         g.select('.x.label')
-          .text('distance (' + xUnits + ')')
+          .text(xAxisLabel + ' [' + xUnits + ']')
           .style('fill', 'grey')
           .style('shape-rendering', 'crispEdges');
 
@@ -94387,10 +94403,24 @@ ngeo.profile = function(options) {
     }
 
     var point = data[i];
+    var dist = distanceExtractor(point);
+    var elevation;
+    var elevations = [];
+    var elevationsRef = {};
+    var lineName;
 
-    var extractor = elevationExtractor;
-    var elevation = extractor.z(point);
-    var dist = extractor.dist(point);
+    for (lineName in linesConfiguration) {
+      elevation = linesConfiguration[lineName].zExtractor(point);
+      elevations.push(elevation);
+      elevationsRef[lineName] = elevation;
+      g.select('.y.grid-hover.' + lineName)
+          .style('display', 'inline')
+          .select('line')
+          .attr('x1', x(0))
+          .attr('y1', y(elevation))
+          .attr('x2', width)
+          .attr('y2', y(elevation));
+    }
 
     g.select('.x.grid-hover')
         .style('display', 'inline')
@@ -94398,15 +94428,7 @@ ngeo.profile = function(options) {
         .attr('x1', x(dist))
         .attr('y1', height)
         .attr('x2', x(dist))
-        .attr('y2', y(elevation));
-
-    g.select('.y.grid-hover')
-        .style('display', 'inline')
-        .select('line')
-        .attr('x1', x(0))
-        .attr('y1', y(elevation))
-        .attr('x2', width)
-        .attr('y2', y(elevation));
+        .attr('y2', y(Math.max.apply(null, elevations)));
 
     var right = dist > xDomain[1] / 2;
     var xtranslate = x(dist);
@@ -94419,12 +94441,16 @@ ngeo.profile = function(options) {
             (height - 10) + ')');
 
     var yUnits = 'm';
-    g.select('.y.grid-hover text')
-        .text(formatter.yhover(elevation, 'm'))
-        .style('text-anchor', right ? 'end' : 'start')
-        .attr('transform', 'translate(' + xtranslate + ',' +
-            (y(elevation) - 10) + ')');
-    hoverCallback.call(null, point, dist / xFactor, xUnits, elevation, yUnits);
+    // Display altitude on guides only if there is one line.
+    if (numberOfLines === 1) {
+      g.select('.y.grid-hover text')
+          .text(formatter.yhover(elevations[0], 'm'))
+          .style('text-anchor', right ? 'end' : 'start')
+          .attr('transform', 'translate(' + xtranslate + ',' +
+              (y(elevations[0]) - 10) + ')');
+    }
+    hoverCallback.call(null, point, dist / xFactor, xUnits, elevationsRef,
+        yUnits);
   };
 
 
@@ -94441,7 +94467,12 @@ ngeo.profile = function(options) {
       var i = bisectDistance(profileData, Math.round(pe.dist(d) * 10) / 10, 1);
       var point = profileData[i];
       if (point) {
-        var z = elevationExtractor.z(point);
+        var lineName;
+        var elevations = [];
+        for (lineName in linesConfiguration) {
+          elevations.push(linesConfiguration[lineName].zExtractor(point));
+        }
+        var z = Math.max.apply(null, elevations);
         pe.z(d, z);
       }
       return pe.id(d);
@@ -94879,6 +94910,1071 @@ ngeo.AttributesController.prototype.handleFeaturePropertyChange_ = function(
 
 ngeo.module.controller('ngeoAttributesController', ngeo.AttributesController);
 
+goog.provide('ngeo.LayerHelper');
+
+goog.require('ngeo');
+goog.require('ol.Collection');
+goog.require('ol.array');
+goog.require('ol.format.WMTSCapabilities');
+goog.require('ol.layer.Group');
+goog.require('ol.layer.Image');
+goog.require('ol.layer.Tile');
+goog.require('ol.source.ImageWMS');
+goog.require('ol.source.WMTS');
+
+
+/**
+ * Provides help functions that helps you to create and manage layers.
+ * @param {angular.$q} $q Angular promises/deferred service.
+ * @param {angular.$http} $http Angular http service.
+ * @constructor
+ * @ngdoc service
+ * @ngname ngeoLayerHelper
+ * @ngInject
+ */
+ngeo.LayerHelper = function($q, $http) {
+
+  /**
+   * @type {angular.$q}
+   * @private
+   */
+  this.$q_ = $q;
+
+  /**
+   * @type {angular.$http}
+   * @private
+   */
+  this.$http_ = $http;
+};
+
+
+/**
+ * @const
+ */
+ngeo.LayerHelper.GROUP_KEY = 'groupName';
+
+
+/**
+ * Create and return a basic WMS layer with only a source URL and a dot
+ * separated layers names (see {@link ol.source.ImageWMS}).
+ * @param {string} sourceURL The source URL.
+ * @param {string} sourceLayersName A dot separated names string.
+ * @param {string=} opt_serverType Type of the server ("mapserver",
+ *     "geoserver", "qgisserver", …).
+ * @param {string=} opt_time time parameter for layer queryable by time/periode
+ * @return {ol.layer.Image} WMS Layer.
+ * @export
+ */
+ngeo.LayerHelper.prototype.createBasicWMSLayer = function(sourceURL,
+    sourceLayersName, opt_serverType, opt_time) {
+  var params = {'LAYERS': sourceLayersName};
+  var olServerType;
+  if (opt_time) {
+    params['TIME'] = opt_time;
+  }
+  if (opt_serverType) {
+    params['SERVERTYPE'] = opt_serverType;
+    // OpenLayers expects 'qgis' insteads of 'qgisserver'
+    olServerType = opt_serverType.replace('qgisserver', 'qgis');
+  }
+  var layer = new ol.layer.Image({
+    source: new ol.source.ImageWMS({
+      url: sourceURL,
+      params: params,
+      serverType: olServerType
+    })
+  });
+  return layer;
+};
+
+
+/**
+ * Create and return a promise that provides a WMTS layer with source on
+ * success, no layer else.
+ * The WMTS layer source will be configured by the capabilities that are
+ * loaded from the given capabilitiesUrl.
+ * The style object described in the capabilities for this layer will be added
+ * as key 'capabilitiesStyles' as param of the new layer.
+ * @param {string} capabilitiesURL The getCapabilities url.
+ * @param {string} layerName The name of the layer.
+ * @param {Object.<string, string>=} opt_dimensions WMTS dimensions.
+ * @return {angular.$q.Promise} A Promise with a layer (with source) on success,
+ *     no layer else.
+ * @export
+ */
+ngeo.LayerHelper.prototype.createWMTSLayerFromCapabilitites = function(capabilitiesURL, layerName, opt_dimensions) {
+  var parser = new ol.format.WMTSCapabilities();
+  var layer = new ol.layer.Tile();
+  var $q = this.$q_;
+
+  return this.$http_.get(capabilitiesURL).then(function(response) {
+    var result;
+    if (response.data) {
+      result = parser.read(response.data);
+    }
+    if (result !== undefined) {
+      var options = ol.source.WMTS.optionsFromCapabilities(result, {
+        layer: layerName
+      });
+      var source = new ol.source.WMTS(options);
+      if (opt_dimensions) {
+        source.updateDimensions(opt_dimensions);
+      }
+      layer.setSource(source);
+
+      // Add styles from capabilities as param of the layer
+      var layers = result['Contents']['Layer'];
+      var l = ol.array.find(layers, function(elt, index, array) {
+        return elt['Identifier'] == layerName;
+      });
+      layer.set('capabilitiesStyles', l['Style']);
+
+      return $q.resolve(layer);
+    }
+    return $q.reject('Failed to get WMTS capabilities from ' +
+        capabilitiesURL);
+  });
+};
+
+
+/**
+ * Create and return an ol.layer.Group. You can pass a collection of layers to
+ * directly add them in the returned group.
+ * @param {ol.Collection.<ol.layer.Base>=} opt_layers The layer to add to the
+ * returned Group.
+ * @return {ol.layer.Group} Layer group.
+ * @export
+ */
+ngeo.LayerHelper.prototype.createBasicGroup = function(opt_layers) {
+  var group = new ol.layer.Group();
+  if (goog.isDefAndNotNull(opt_layers)) {
+    group.setLayers(opt_layers);
+  }
+  return group;
+};
+
+
+/**
+ * Retrieve (or create if it doesn't exist) and return a group of layer from
+ * the base array of layers of a map. The given name is used as unique
+ * identifier. If the group is created, it will be automatically added to
+ * the map.
+ * @param {ol.Map} map A map.
+ * @param {string} groupName The name of the group.
+ * @return {ol.layer.Group} The group corresponding to the given name.
+ * @export
+ */
+ngeo.LayerHelper.prototype.getGroupFromMap = function(map, groupName) {
+  var groups = map.getLayerGroup().getLayers();
+  var group;
+  groups.getArray().some(function(exitingGroup) {
+    if (exitingGroup.get(ngeo.LayerHelper.GROUP_KEY) === groupName) {
+      group = /** @type {ol.layer.Group} */ (exitingGroup);
+      return true;
+    } else {
+      return false;
+    }
+  });
+  if (!group) {
+    group = this.createBasicGroup();
+    group.set(ngeo.LayerHelper.GROUP_KEY, groupName);
+    map.addLayer(group);
+  }
+  return group;
+};
+
+
+/**
+ * Get an array of all layers in a group. The group can contain multiple levels
+ * of others groups.
+ * @param {ol.layer.Base} layer The base layer, mostly a group of layers.
+ * @return {Array.<ol.layer.Layer>} Layers.
+ * @export
+ */
+ngeo.LayerHelper.prototype.getFlatLayers = function(layer) {
+  return this.getFlatLayers_(layer, []);
+};
+
+
+/**
+ * Get an array of all layers in a group. The group can contain multiple levels
+ * of others groups.
+ * @param {ol.layer.Base} layer The base layer, mostly a group of layers.
+ * @param {Array.<ol.layer.Base>} array An array to add layers.
+ * @return {Array.<ol.layer.Layer>} Layers.
+ * @private
+ */
+ngeo.LayerHelper.prototype.getFlatLayers_ = function(layer, array) {
+  if (layer instanceof ol.layer.Group) {
+    var sublayers = layer.getLayers();
+    sublayers.forEach(function(l) {
+      this.getFlatLayers_(l, array);
+    }, this);
+  } else {
+    if (array.indexOf(layer) < 0) {
+      array.push(layer);
+    }
+  }
+  return array;
+};
+
+
+/**
+ * Get a layer that has a `layerName` property equal to a given layer name from
+ * an array of layers. If one of the layers in the array is a group, then the
+ * layers contained in that group are searched as well.
+ * @param {string} layerName The name of the layer we're looking for.
+ * @param {Array.<ol.layer.Base>} layers Layers.
+ * @return {?ol.layer.Base} Layer.
+ * @export
+ */
+ngeo.LayerHelper.prototype.getLayerByName = function(layerName, layers) {
+  var found = null;
+  layers.some(function(layer) {
+    if (layer instanceof ol.layer.Group) {
+      var sublayers = layer.getLayers().getArray();
+      found = this.getLayerByName(layerName, sublayers);
+    } else if (layer.get('layerName') === layerName) {
+      found = layer;
+    }
+    return !!found;
+  }, this);
+
+  return found;
+};
+
+
+/**
+ * Get the WMTS legend URL for the given layer.
+ * @param {ol.layer.Tile} layer Tile layer as returned by the
+ * ngeo layerHelper service.
+ * @return {?string} The legend URL or null.
+ * @export
+ */
+ngeo.LayerHelper.prototype.getWMTSLegendURL = function(layer) {
+  // FIXME case of multiple styles ?  case of multiple legendUrl ?
+  var url;
+  var styles = layer.get('capabilitiesStyles');
+  if (styles !== undefined) {
+    var legendURL = styles[0]['legendURL'];
+    if (legendURL !== undefined) {
+      url = legendURL[0]['href'];
+    }
+  }
+  return url || null;
+};
+
+
+/**
+ * Get the WMS legend URL for the given node.
+ * @param {string} url The base url of the wms service.
+ * @param {string} layerName The name of a wms layer.
+ * @param {number} scale A scale.
+ * @param {string=} opt_legendRule rule parameters to add to the returned URL.
+ * @return {?string} The legend URL or null.
+ * @export
+ */
+ngeo.LayerHelper.prototype.getWMSLegendURL = function(url,
+    layerName, scale, opt_legendRule) {
+  if (!url) {
+    return null;
+  }
+  url = goog.uri.utils.setParam(url, 'FORMAT', 'image/png');
+  url = goog.uri.utils.setParam(url, 'TRANSPARENT', true);
+  url = goog.uri.utils.setParam(url, 'SERVICE', 'wms');
+  url = goog.uri.utils.setParam(url, 'VERSION', '1.1.1');
+  url = goog.uri.utils.setParam(url, 'REQUEST', 'GetLegendGraphic');
+  url = goog.uri.utils.setParam(url, 'LAYER', layerName);
+  url = goog.uri.utils.setParam(url, 'SCALE', scale);
+  if (opt_legendRule !== undefined) {
+    url = goog.uri.utils.setParam(url, 'RULE', opt_legendRule);
+  }
+  return url;
+};
+
+
+/**
+ * Returns if this layer is visible at the current resolution.
+ * @param {ol.layer.Base} layer Layer.
+ * @param {ol.Map} map Map.
+ * @return {boolean} Is the layer currently visible?
+ */
+ngeo.LayerHelper.prototype.isLayerVisible = function(layer, map) {
+  if (!layer.getVisible()) {
+    return false;
+  }
+
+  var currentResolution = map.getView().getResolution();
+  return currentResolution > layer.getMinResolution() &&
+      currentResolution < layer.getMaxResolution();
+};
+
+
+ngeo.module.service('ngeoLayerHelper', ngeo.LayerHelper);
+
+goog.provide('ngeo.Query');
+
+goog.require('ngeo');
+goog.require('ngeo.LayerHelper');
+goog.require('ol.format.WFS');
+goog.require('ol.format.WMSGetFeatureInfo');
+goog.require('ol.source.ImageWMS');
+goog.require('ol.source.TileWMS');
+goog.require('goog.uri.utils');
+
+
+/**
+ * @enum {string}
+ */
+ngeo.QueryInfoFormatType = {
+  GML: 'application/vnd.ogc.gml'
+};
+
+
+/**
+ * @typedef {{
+ *     resultSource: (ngeox.QueryResultSource),
+ *     source: (ngeox.QuerySource)
+ * }}
+ */
+ngeo.QueryCacheItem;
+
+
+/**
+ * @typedef {{
+ *     wms: (Object.<string, Array.<ngeo.QueryCacheItem>>),
+ *     wfs: (Object.<string, Array.<ngeo.QueryCacheItem>>)
+ * }}
+ */
+ngeo.QueryableSources;
+
+
+/**
+ * The `ngeoQueryResult` is the value service where the features of the query
+ * result are added.
+ */
+ngeo.module.value('ngeoQueryResult', /** @type {ngeox.QueryResult} */ ({
+  sources: [],
+  total: 0
+}));
+
+
+/**
+ * The Query service provides a way to send WMS GetFeatureInfo and WFS GetFeature
+ * requests from visible layer objects within a map. Those do not necessarily need to have
+ * a WMS source. The Query service requires source configuration in order
+ * for layers to actually be considered queryable.
+ *
+ * To know more about the specification of a source configuration, see
+ * `ngeox.QuerySource`
+ *
+ * @constructor
+ * @param {angular.$http} $http Angular $http service.
+ * @param {angular.$q} $q The Angular $q service.
+ * @param {ngeox.QueryResult} ngeoQueryResult The ngeo query result service.
+ * @param {ngeox.QueryOptions|undefined} ngeoQueryOptions The options to
+ *     configure the ngeo query service with.
+ * @param {ngeo.LayerHelper} ngeoLayerHelper Ngeo Layer Helper.
+ * @ngdoc service
+ * @ngname ngeoQuery
+ * @ngInject
+ */
+ngeo.Query = function($http, $q, ngeoQueryResult, ngeoQueryOptions,
+    ngeoLayerHelper) {
+
+  var options = ngeoQueryOptions !== undefined ? ngeoQueryOptions : {};
+
+  /**
+   * @type {number}
+   * @private
+   */
+  this.limit_ = options.limit !== undefined ? options.limit : 50;
+
+  /**
+   * @type {string}
+   * @private
+   */
+  this.sourceIdsProperty_ = options.sourceIdsProperty !== undefined ?
+      options.sourceIdsProperty : ngeo.Query.DEFAULT_SOURCE_IDS_PROPERTY_;
+
+  /**
+   * @type {number}
+   * @private
+   */
+  this.tolerancePx_ = options.tolerance !== undefined ?
+      options.tolerance : 3;
+
+  /**
+   * @type {string}
+   * @private
+   */
+  this.featureNS_ = options.featureNS !== undefined ?
+      options.featureNS : 'http://mapserver.gis.umn.edu/mapserver';
+
+  /**
+   * @type {string}
+   * @private
+   */
+  this.featurePrefix_ = options.featurePrefix !== undefined ?
+      options.featurePrefix : 'feature';
+
+  /**
+   * @type {string}
+   * @private
+   */
+  this.geometryName_ = options.geometryName !== undefined ?
+      options.geometryName : 'the_geom';
+
+  /**
+   * @type {ngeo.LayerHelper}
+   * @private
+   */
+  this.ngeoLayerHelper_ = ngeoLayerHelper;
+
+  /**
+   * @type {angular.$http}
+   * @private
+   */
+  this.$http_ = $http;
+
+  /**
+   * @type {angular.$q}
+   * @private
+   */
+  this.$q_ = $q;
+
+  /**
+   * @type {ngeox.QueryResult}
+   * @private
+   */
+  this.result_ = ngeoQueryResult;
+
+  /**
+   * @type {Array.<ngeox.QuerySource>}
+   * @private
+   */
+  this.sources_ = [];
+
+  /**
+   * @type {Object.<number|string, ngeo.QueryCacheItem>}
+   * @private
+   */
+  this.cache_ = {};
+
+  /**
+   * Promises that can be resolved to cancel started requests.
+   * @type {Array.<angular.$q.Deferred>}
+   * @private
+   */
+  this.requestCancelers_ = [];
+};
+
+
+/**
+ * @const
+ * @private
+ */
+ngeo.Query.DEFAULT_SOURCE_IDS_PROPERTY_ = 'querySourceIds';
+
+
+/**
+ * Adds a new source to the query service.
+ *
+ * A source must at least have an `id` configured.  That id is then used to
+ * associate the corresponding layer object within a map.
+ *
+ * A source will require a `ol.source.ImageWMS` or `ol.source.TileWMS` object.
+ * You can either set it directly in the config, or use the one from a given
+ * layer or let the query service create one for you using other source config
+ * such as `url` and `params`.
+ *
+ * A source can be set with either a `format` and/or `infoFormat`, which will
+ * determine how the returned features of a query will be read.
+ *
+ * This method will also create a result entry in the `ngeoQueryResult`
+ * value service.
+ *
+ * @param {ngeox.QuerySource} source The source to add to the query service.
+ * @export
+ */
+ngeo.Query.prototype.addSource = function(source) {
+  var sourceId = source.id;
+
+  goog.asserts.assert(sourceId, 'source.id should be thruthy');
+  goog.asserts.assert(!this.cache_[sourceId],
+      'no other source with the same id should be present');
+
+  // == wmsSource ==
+  // if the source doesn't have a wmsSource property set, it must at least have
+  // a layer that has one or have the required configuration options in order
+  // to create one.
+  if (!source.wmsSource) {
+    if (source.layer &&
+        (source.layer instanceof ol.layer.Image ||
+         source.layer instanceof ol.layer.Tile)) {
+      var wmsSource = source.layer.getSource();
+      if (wmsSource &&
+          (wmsSource instanceof ol.source.ImageWMS ||
+           wmsSource instanceof ol.source.TileWMS)) {
+        source.wmsSource =
+            /** @type {ol.source.ImageWMS|ol.source.TileWMS} */ (wmsSource);
+      }
+    } else {
+      var url = source.url;
+      var params = source.params;
+      goog.asserts.assert(url,
+          'url must be set when no layer or wmsSource is set in the source');
+      goog.asserts.assert(params,
+          'parmas must be set when no layer or wmsSource is set in the source');
+      source.wmsSource = new ol.source.ImageWMS({
+        url: url,
+        params: params
+      });
+    }
+  }
+  goog.asserts.assert(source.wmsSource, 'wmsSource should be thruthy');
+
+  // == format ==
+  if (!source.format) {
+    // GML is the default infoFormat if the source doesn't have one defined
+    if (!source.infoFormat) {
+      source.infoFormat = ngeo.QueryInfoFormatType.GML;
+    }
+
+    var layers = source.wmsSource.getParams()['LAYERS'].split(',');
+
+    if (source.infoFormat === ngeo.QueryInfoFormatType.GML) {
+      source.format = new ol.format.WMSGetFeatureInfo({
+        layers: layers
+      });
+    }
+  } else if (!source.infoFormat) {
+    // == infoFormat ==
+    var format = source.format;
+    if (format instanceof ol.format.WMSGetFeatureInfo) {
+      source.infoFormat = ngeo.QueryInfoFormatType.GML;
+    }
+  }
+  goog.asserts.assert(source.format, 'format should be thruthy');
+
+  this.sources_.push(source);
+
+  var sourceLabel = source.label !== undefined ? source.label : sourceId;
+
+  var sourceIdentifierAttributeField =
+      source.identifierAttributeField !== undefined ?
+      source.identifierAttributeField : sourceId;
+
+  var resultSource = /** @type {ngeox.QueryResultSource} */ ({
+    'features': [],
+    'id': sourceId,
+    'identifierAttributeField': sourceIdentifierAttributeField,
+    'label': sourceLabel,
+    'pending': false,
+    'queried': false
+  });
+
+  this.result_.sources.push(resultSource);
+
+  var cacheItem = {
+    'source': source,
+    'resultSource': resultSource
+  };
+  this.cache_[sourceId] = cacheItem;
+};
+
+
+/**
+ * Add multiple sources at once in the order they are given.
+ * @param {Array.<ngeox.QuerySource>} sources The sources to add to the query
+ *     service.
+ * @export
+ */
+ngeo.Query.prototype.addSources = function(sources) {
+  sources.forEach(this.addSource, this);
+};
+
+
+/**
+ * Clear the results.
+ * @export
+ */
+ngeo.Query.prototype.clear = function() {
+  this.clearResult_();
+};
+
+
+/**
+ * Issue a new request using a given map and a given object, which can be
+ * a coordinate or extent.
+ *
+ * When given a coordinate, WMS GetFeatureInfo or WFS GetFeature requests will
+ * be made. If a layer supports WFS, a GetFeature request with a bbox around the
+ * coordinate are issued.
+ *
+ * For an extent, WFS GetFeature is used.
+ *
+ * @param {ol.Map} map The ol3 map object to fetch the layers from.
+ * @param {ol.Coordinate|ol.Extent} object The coordinate or extent to issue
+ *     the request with.
+ * @export
+ */
+ngeo.Query.prototype.issue = function(map, object) {
+  this.cancelStillRunningRequests_();
+  this.clearResult_();
+
+  if (object.length === 2) {
+    this.issueIdentifyFeaturesRequests_(map, object);
+  } else {
+    goog.asserts.assert(object.length === 4, 'expecting extent');
+    this.issueGetFeatureRequests_(map, object);
+  }
+};
+
+
+/**
+ * Issue WMS GetFeatureInfo or WFS GetFeature requests using the given
+ * coordinate and map.
+ * For each visible layer of the map, if that layer has a source configured
+ * within this query service, then a query will be sent and the results
+ * will be stocked in the `ngeoQueryResult`.
+ *
+ * For WMS GetFeatureInfo, gf multiple sources share the same url and use GML
+ * as info format, then only one request will be sent for all these sources.
+ *
+ * NOTE: Only GML info format are currently supported.
+ *
+ * @param {ol.Map} map The ol3 map object to fetch the layers from.
+ * @param {ol.Coordinate} coordinate The coordinate to issue the request with.
+ * @private
+ */
+ngeo.Query.prototype.issueIdentifyFeaturesRequests_ = function(map, coordinate) {
+  var sources = this.getQueryableSources_(map, false);
+
+  this.doGetFeatureInfoRequests_(sources.wms, coordinate, map);
+  this.doGetFeatureRequestsWithCoordinate_(sources.wfs, coordinate, map);
+};
+
+
+/**
+ * Issue WFS GetFeature requests using the given extent for each visible layer
+ * of the map.
+ *
+ * @param {ol.Map} map The ol3 map object to fetch the layers from.
+ * @param {ol.Extent} extent The coordinate to issue the request with.
+ * @private
+ */
+ngeo.Query.prototype.issueGetFeatureRequests_ = function(map, extent) {
+  var sources = this.getQueryableSources_(map, true);
+  this.doGetFeatureRequests_(sources.wfs, extent, map);
+};
+
+
+/**
+ * @param {ol.Map} map Map.
+ * @param {boolean} wfsOnly Only get sources queryable via WFS.
+ * @return {ngeo.QueryableSources} Queryable sources.
+ * @private
+ */
+ngeo.Query.prototype.getQueryableSources_ = function(map, wfsOnly) {
+
+  var wmsItemsByUrl =
+      /** @type {Object.<string, Array.<ngeo.QueryCacheItem>>} */ ({});
+  var wfsItemsByUrl =
+      /** @type {Object.<string, Array.<ngeo.QueryCacheItem>>} */ ({});
+
+  var layers = this.ngeoLayerHelper_.getFlatLayers(map.getLayerGroup());
+
+  layers.forEach(function(layer) {
+
+    // Skip layers that are not visible
+    if (!this.ngeoLayerHelper_.isLayerVisible(layer, map)) {
+      return;
+    }
+
+    // Skip layers that don't have one or more sources configured
+    var ids = this.getLayerSourceIds_(layer);
+    if (ids.length === 0) {
+      return;
+    }
+
+    var infoFormat;
+    var url;
+    var item;
+    for (var i = 0, len = ids.length; i < len; i++) {
+      var id = ids[i];
+      item = this.cache_[id];
+      if (!item) {
+        continue;
+      }
+
+      // If `validateLayerParams` is set, then the source config layer in the
+      // LAYERS params must be in the current LAYERS params of the layer
+      // wms source object.
+      if (item.source.validateLayerParams) {
+        goog.asserts.assert(
+            layer instanceof ol.layer.Image ||
+            layer instanceof ol.layer.Tile,
+            'The layer should be an Image or Tile when using the ' +
+            'validateLayerParams option.'
+        );
+        var layerSource = layer.getSource();
+        goog.asserts.assert(
+            layerSource instanceof ol.source.ImageWMS ||
+            layerSource instanceof ol.source.TileWMS,
+            'The layer source should be a WMS one when using the ' +
+            'validateLayerParams option.'
+        );
+        var layerLayers = layerSource.getParams()['LAYERS'].split(',');
+        var cfgLayer = item.source.wmsSource.getParams()['LAYERS'];
+        goog.asserts.assert(cfgLayer.indexOf(',') === -1,
+            'The LAYERS param contains more than one item');
+        if (layerLayers.indexOf(cfgLayer) === -1) {
+          continue;
+        }
+      }
+
+      item['resultSource'].pending = true;
+      item['resultSource'].queried = true;
+
+      if (item.source.wfsQuery) {
+        // use WFS GetFeature
+        url = item.source.urlWfs || item.source.wmsSource.getUrl();
+        goog.asserts.assertString(url);
+        if (!wfsItemsByUrl[url]) {
+          wfsItemsByUrl[url] = [];
+        }
+        wfsItemsByUrl[url].push(item);
+      } else if (!wfsOnly) {
+        // use WMF GetFeatureInfo
+        infoFormat = item.source.infoFormat;
+
+        // Sources that use GML as info format are combined together if they
+        // share the same server url
+        if (infoFormat === ngeo.QueryInfoFormatType.GML) {
+          url = item.source.wmsSource.getUrl();
+          goog.asserts.assertString(url);
+          if (!wmsItemsByUrl[url]) {
+            wmsItemsByUrl[url] = [];
+          }
+          wmsItemsByUrl[url].push(item);
+        } else {
+          // TODO - support other kinds of infoFormats
+          item['resultSource'].pending = false;
+          item['resultSource'].queried = false;
+        }
+      }
+    }
+  }, this);
+
+  return {
+    wms: wmsItemsByUrl,
+    wfs: wfsItemsByUrl
+  };
+};
+
+
+/**
+ * @param {Object.<string, Array.<ngeo.QueryCacheItem>>} wmsItemsByUrl Queryable
+ *    layers for GetFeatureInfo
+ * @param {ol.Coordinate} coordinate Query coordinate
+ * @param {ol.Map} map Map
+ * @private
+ */
+ngeo.Query.prototype.doGetFeatureInfoRequests_ = function(
+    wmsItemsByUrl, coordinate, map) {
+  var view = map.getView();
+  var projCode = view.getProjection().getCode();
+  var resolution = /** @type {number} */(view.getResolution());
+
+  angular.forEach(wmsItemsByUrl, function(items) {
+    var infoFormat = items[0].source.infoFormat;
+    var wmsGetFeatureInfoUrl = items[0].source.wmsSource.getGetFeatureInfoUrl(
+        coordinate, resolution, projCode, {
+          'INFO_FORMAT': infoFormat,
+          'FEATURE_COUNT': this.limit_
+        });
+
+    goog.asserts.assert(
+        wmsGetFeatureInfoUrl, 'WMS GetFeatureInfo url should be thruty');
+
+    var layers = this.getLayersForItems_(items);
+    var lyrStr = layers.join(',');
+
+    wmsGetFeatureInfoUrl =
+        goog.uri.utils.setParam(wmsGetFeatureInfoUrl, 'LAYERS', lyrStr);
+    wmsGetFeatureInfoUrl =
+        goog.uri.utils.setParam(wmsGetFeatureInfoUrl, 'QUERY_LAYERS', lyrStr);
+
+    var canceler = this.registerCanceler_();
+    this.$http_.get(wmsGetFeatureInfoUrl, {timeout: canceler.promise})
+        .then(function(items, response) {
+          items.forEach(function(item) {
+            var format = item.source.format;
+            var features = format.readFeatures(response.data);
+            this.setUniqueIds_(features, item.source.id);
+            item['resultSource'].pending = false;
+            item['resultSource'].features = features;
+            this.result_.total += features.length;
+          }, this);
+        }.bind(this, items));
+  }, this);
+};
+
+
+/**
+ * @param {Object.<string, Array.<ngeo.QueryCacheItem>>} wfsItemsByUrl Queryable
+ *    layers for GetFeature
+ * @param {ol.Coordinate} coordinate Query coordinate
+ * @param {ol.Map} map Map
+ * @private
+ */
+ngeo.Query.prototype.doGetFeatureRequestsWithCoordinate_ = function(
+    wfsItemsByUrl, coordinate, map) {
+  var view = map.getView();
+  var bbox = this.getQueryBbox_(coordinate, view);
+  this.doGetFeatureRequests_(wfsItemsByUrl, bbox, map);
+};
+
+
+/**
+ * @param {Object.<string, Array.<ngeo.QueryCacheItem>>} wfsItemsByUrl Queryable
+ *    layers for GetFeature
+ * @param {ol.Extent} bbox Query bbox
+ * @param {ol.Map} map Map
+ * @private
+ */
+ngeo.Query.prototype.doGetFeatureRequests_ = function(
+    wfsItemsByUrl, bbox, map) {
+  var view = map.getView();
+  var projCode = view.getProjection().getCode();
+  var wfsFormat = new ol.format.WFS();
+  var xmlSerializer = new XMLSerializer();
+
+  angular.forEach(wfsItemsByUrl, function(items, url) {
+    items.forEach(function(item) {
+      var layers = this.getLayersForItem_(item);
+
+      var featureRequestXml = wfsFormat.writeGetFeature({
+        srsName: projCode,
+        featureNS: this.featureNS_,
+        featurePrefix: this.featurePrefix_,
+        featureTypes: layers,
+        outputFormat: 'GML3',
+        bbox: bbox,
+        geometryName: this.geometryName_,
+        maxFeatures: this.limit_
+      });
+
+      var featureRequest = xmlSerializer.serializeToString(featureRequestXml);
+      var canceler = this.registerCanceler_();
+      this.$http_.post(url, featureRequest, {timeout: canceler.promise})
+          .then(function(response) {
+            var sourceFormat = new ol.format.WFS({
+              featureType: layers,
+              featureNS: this.featureNS_
+            });
+            var features = sourceFormat.readFeatures(response.data);
+            this.setUniqueIds_(features, item.source.id);
+            item['resultSource'].pending = false;
+            item['resultSource'].features = features;
+            this.result_.total += features.length;
+          }.bind(this));
+    }.bind(this));
+  }.bind(this));
+};
+
+/**
+ * Clear every features for all result sources and reset the total counter
+ * as well.
+ * @private
+ */
+ngeo.Query.prototype.clearResult_ = function() {
+  this.result_.total = 0;
+  this.result_.sources.forEach(function(source) {
+    source.features.length = 0;
+    source.pending = false;
+    source.queried = false;
+  }, this);
+};
+
+
+/**
+ * Returns the source ids from an ol3 layer object.
+ * @param {ol.layer.Base} layer The ol3 layer object.
+ * @return {Array.<number|string>} ids The ids of the sources bound to that
+ *     layer.
+ * @private
+ */
+ngeo.Query.prototype.getLayerSourceIds_ = function(layer) {
+  var ids = layer.get(this.sourceIdsProperty_) || [];
+  goog.asserts.assertArray(ids);
+  var clone = ids.slice();
+  return clone;
+};
+
+
+/**
+ * @param {ngeo.QueryCacheItem} item Cache item
+ * @return {Array.<string>} Layer names
+ * @private
+ */
+ngeo.Query.prototype.getLayersForItem_ = function(item) {
+  return item.source.wmsSource.getParams()['LAYERS'].split(',');
+};
+
+
+/**
+ * @param {Array.<ngeo.QueryCacheItem>} items Cache items
+ * @return {Array.<string>} Layer names
+ * @private
+ */
+ngeo.Query.prototype.getLayersForItems_ = function(items) {
+  var layers = this.getLayersForItem_(items[0]);
+  for (var i = 1, len = items.length; i < len; i++) {
+    layers = layers.concat(this.getLayersForItem_(items[i]));
+  }
+  return layers;
+};
+
+
+/**
+ * Make sure that feature ids are unique, because the same features might
+ * be returned for different layers.
+ * @param {Array.<ol.Feature>} features Features
+ * @param {string|number} sourceId Source id.
+ * @private
+ */
+ngeo.Query.prototype.setUniqueIds_ = function(features, sourceId) {
+  features.forEach(function(feature) {
+    if (feature.getId() !== undefined) {
+      var id = sourceId + '_' + feature.getId();
+      feature.setId(id);
+    }
+  });
+};
+
+
+/**
+ * Construct a bbox around a coordinate with a tolerance relative to the
+ * current resolution.
+ * @param {ol.Coordinate} coordinate Coordinate
+ * @param {ol.View} view View
+ * @return {ol.Extent} Bbox
+ * @private
+ */
+ngeo.Query.prototype.getQueryBbox_ = function(coordinate, view) {
+  var tolerance = this.tolerancePx_ * view.getResolution();
+
+  return ol.extent.buffer(
+      ol.extent.createOrUpdateFromCoordinate(coordinate),
+      tolerance);
+};
+
+
+/**
+ * @return {angular.$q.Deferred} A deferred that can be resolved to cancel a
+ *    HTTP request.
+ * @private
+ */
+ngeo.Query.prototype.registerCanceler_ = function() {
+  var canceler = this.$q_.defer();
+  this.requestCancelers_.push(canceler);
+  return canceler;
+};
+
+
+/**
+ * @private
+ */
+ngeo.Query.prototype.cancelStillRunningRequests_ = function() {
+  this.requestCancelers_.forEach(function(canceler) {
+    canceler.resolve();
+  });
+  this.requestCancelers_.length = 0;
+};
+
+
+ngeo.module.service('ngeoQuery', ngeo.Query);
+
+goog.provide('ngeo.bboxQueryDirective');
+
+goog.require('ngeo');
+goog.require('ngeo.Query');
+goog.require('ol.interaction.DragBox');
+
+
+/**
+ * Provides a "bbox query" directive.
+ *
+ * This directive is responsible of binding a map and the ngeo query service
+ * together. While active, drawing a bbox while CTRL or the 'meta' key is pressed
+ * issues a request to the query service.
+ *
+ * This directive doesn't require to be rendered in a visible DOM element, but
+ * it could be used with a ngeo-btn to manage the activation of the directive.
+ * See below an example without any use of UI:
+ *
+ * Example:
+ *
+ *      <span
+ *        ngeo-bbox-query=""
+ *        ngeo-bbox-query-map="::ctrl.map"
+ *        ngeo-bbox-query-active="ctrl.queryActive">
+ *      </span>
+ *
+ * See the live example: {@link ../examples/bboxquery.html}
+ *
+ * @param {ngeo.Query} ngeoQuery The ngeo Query service.
+ * @return {angular.Directive} The Directive Definition Object.
+ * @ngInject
+ * @ngdoc directive
+ * @ngname ngeoBboxQuery
+ */
+ngeo.bboxQueryDirective = function(ngeoQuery) {
+  return {
+    restrict: 'A',
+    scope: false,
+    link: function(scope, elem, attrs) {
+      /**
+       * @type {ol.Map}
+       */
+      var map = scope.$eval(attrs['ngeoBboxQueryMap']);
+
+      var interaction = new ol.interaction.DragBox({
+        condition: ol.events.condition.platformModifierKeyOnly
+      });
+
+      /**
+       * Called when a bbox is drawn while this controller is active. Issue
+       * a request to the query service using the extent that was drawn.
+       * @param {ol.DragBoxEvent} evt Event.
+       */
+      var handleBoxEnd = function(evt) {
+        var extent = interaction.getGeometry().getExtent();
+        ngeoQuery.issue(map, extent);
+      };
+      interaction.on('boxend', handleBoxEnd);
+
+      // watch 'active' property -> activate/deactivate accordingly
+      scope.$watch(attrs['ngeoBboxQueryActive'],
+          function(newVal, oldVal) {
+            if (newVal) {
+              // activate
+              map.addInteraction(interaction);
+            } else {
+              // deactivate
+              map.removeInteraction(interaction);
+              ngeoQuery.clear();
+            }
+          }
+      );
+    }
+  };
+};
+
+ngeo.module.directive('ngeoBboxQuery', ngeo.bboxQueryDirective);
+
 goog.provide('ngeo.BtnGroupController');
 goog.provide('ngeo.btnDirective');
 goog.provide('ngeo.btngroupDirective');
@@ -95220,1232 +96316,6 @@ ngeo.controlDirective = function() {
 
 
 ngeo.module.directive('ngeoControl', ngeo.controlDirective);
-
-goog.provide('ngeo.Time');
-
-goog.require('ngeo');
-
-/**
- * ngeo - Time service
- * @constructor
- * @ngInject
- * @ngdoc service
- * @ngname ngeoTime
- */
-ngeo.Time  = function() {
-
-};
-
-
-/**
- * Get options regarding the time property of a node;
- *
- * @param {ngeox.TimeProperty} time the time property of a node
- * @return {{
- *  minDate : number,
- *  maxDate : number,
- *  values : (Array<number>|number)
- * }} - Configuration for the UI components
- * @export
- */
-ngeo.Time.prototype.getOptions = function(time) {
-
-  var minDate = new Date(time.minValue);
-  var maxDate = new Date(time.maxValue);
-
-  var minDefaultDate = (time.minDefValue) ?
-      new Date(time.minDefValue) : minDate;
-  var maxDefaultDate = (time.maxDefValue) ?
-      new Date(time.maxDefValue) : maxDate;
-
-  var defaultValues = (time.mode === 'range') ?
-      [minDefaultDate.getTime(), maxDefaultDate.getTime()] :
-      minDefaultDate.getTime();
-
-  return {
-    minDate: minDate.getTime(),
-    maxDate: maxDate.getTime(),
-    values: defaultValues
-  };
-};
-
-
-/**
- * Time.prototype.getUTCDate - Get UTC date from a local date object
- *
- * @param  {Object} localDate loacl date object in
- * @return {Object} UTC date
- * @export
- */
-ngeo.Time.prototype.getUTCDate = function(localDate) {
-  return new Date(
-    localDate.getUTCFullYear(),
-    localDate.getUTCMonth(),
-    localDate.getUTCDate());
-};
-
-
-ngeo.module.service('ngeoTime', ngeo.Time);
-
-goog.require('goog.asserts');
-
-goog.provide('ngeo.DatePickerDirective');
-goog.provide('ngeo.DatePickerController');
-
-goog.require('ngeo');
-goog.require('ngeo.Time');
-
-ngeo.module.value('ngeoDatePickerTemplateUrl',
-    /**
-     * @param {angular.JQLite} element Element.
-     * @param {angular.Attributes} attrs Attributes.
-     * @return {string} Template URL.
-     */
-    function(element, attrs) {
-      var templateUrl = attrs['ngeoDatePickerTemplateUrl'];
-      return templateUrl !== undefined ? templateUrl :
-          ngeo.baseTemplateUrl + '/datepicker.html';
-    });
-
-
-/**
- * Provide a directive to select a signle date or a range of dates
- * @param {string|function(!angular.JQLite=, !angular.Attributes=)}
- * ngeoDatePickerTemplateUrl Template for the directive.
- * @param  {angular.$timeout} $timeout angular timeout service
- * @return {angular.Directive} The directive specs.
- * @ngInject
- * @ngdoc directive
- * @ngname ngeoDatePicker
- */
-ngeo.DatePicker = function(ngeoDatePickerTemplateUrl,  $timeout) {
-  return {
-    scope : {
-      onDateSelected : '&',
-      time : '='
-    },
-    bindToController : true,
-    controller : 'ngeoDatePickerController',
-    controllerAs : 'datepickerCtrl',
-    restrict: 'AE',
-    templateUrl : ngeoDatePickerTemplateUrl,
-    link: function(scope, element, attrs, ctrl) {
-
-      var lang =  ctrl.gettextCatalog_.getCurrentLanguage();
-      $['datepicker']['setDefaults']($['datepicker']['regional'][lang]);
-
-      ctrl.sdateOptions = angular.extend({}, ctrl.sdateOptions, {
-        'onClose' : function(selectedDate) {
-          if (selectedDate) {
-            $(element[0]).find('input[name="edate"]').datepicker('option', 'minDate', selectedDate);
-          }
-        }
-      });
-
-      ctrl.edateOptions = angular.extend({}, ctrl.edateOptions, {
-        'onClose' : function(selectedDate) {
-          if (selectedDate) {
-            $(element[0]).find('input[name="sdate"]').datepicker('option', 'maxDate', selectedDate);
-          }
-        }
-      });
-
-      angular.element('body').on('hidden.bs.popover', function() {
-        var dp = angular.element('#ui-datepicker-div');
-        if (dp && dp.css('display') === 'block') {
-          $(element[0]).find('input[name$="date"]').datepicker('hide');
-        }
-      });
-
-      $timeout(function() {
-        angular.element('#ui-datepicker-div').on('mousedown', function(e) {
-          e.stopPropagation();
-        });
-      });
-    }
-  };
-};
-
-ngeo.module.directive('ngeoDatePicker', ngeo.DatePicker);
-
-
-/**
- * DatePickerController - directive conttroller
- * @param {!angular.Scope} $scope Angular scope.
- * @param {angular.$injector} $injector injector.
- * @param {ngeo.Time} ngeoTime time service.
- * @constructor
- * @export
- * @ngInject
- * @ngdoc controller
- * @ngname ngeoDatePickerController
- */
-ngeo.DatePickerController = function($scope, $injector, ngeoTime) {
-
-  /**
-   * @type {ngeo.Time}
-   * @private
-   */
-  this.ngeoTime_ = ngeoTime;
-
-  /**
-   * @type {ngeox.TimeProperty}
-   * @export
-   */
-  this.time;
-
-  //fetch the initial options for the component
-  var initialOptions_ = this.ngeoTime_.getOptions(this.time);
-
-  /**
-   * The gettext catalog
-   * @type {angularGettext.Catalog}
-   * @private
-   */
-  this.gettextCatalog_ = $injector.get('gettextCatalog');
-
-
-  /**
-   * If the component is used to select a date range
-   * @type boolean
-   * @export
-   */
-  this.isModeRange = this.time.mode === 'range';
-
-
-  /**
-   * Function called after date(s) changed/selected
-   * @function
-   * @export
-   */
-  this.onDateSelected;
-
-
-  /**
-   * initial min date for the datepicker
-   * @type {Date}
-   */
-  this.initialMinDate = new Date(initialOptions_.minDate);
-
-  /**
-   * initial max date for the datepickeronDateSelected
-   * @type {Date}
-   */
-  this.initialMaxDate = new Date(initialOptions_.maxDate);
-
-  /**
-   * Datepicker options for the second datepicker (only for range mode)
-   * @type {Object}
-   * @export
-   */
-  this.edateOptions = {
-    'minDate' : this.initialMinDate,
-    'maxDate' : this.initialMaxDate,
-    'changeMonth': true,
-    'changeYear': true
-  };
-
-  /**
-   * Datepicker options for the first datepicker
-   * @type {Object}
-   * @export
-   */
-  this.sdateOptions = {
-    'minDate' : this.initialMinDate,
-    'maxDate' : this.initialMaxDate,
-    'changeMonth': true,
-    'changeYear': true
-  };
-
-  /**
-   * Start date model for the first date picker
-   * @type {Date}
-   * @export
-   */
-  this.sdate;
-
-  /**
-   * End date model for the second datepicker (only for range mode)
-   * @type {Date}
-   * @export
-   */
-  this.edate;
-
-  if (this.isModeRange) {
-    goog.asserts.assertArray(initialOptions_.values);
-    this.sdate = new Date(initialOptions_.values[0]);
-    this.edate = new Date(initialOptions_.values[1]);
-  } else {
-    goog.asserts.assertNumber(initialOptions_.values);
-    this.sdate = new Date(initialOptions_.values);
-  }
-
-  $scope.$watchGroup(['datepickerCtrl.sdate', 'datepickerCtrl.edate'], function(newDates, oldDates) {
-    var sDate = newDates[0];
-    var eDate = newDates[1];
-
-    if (angular.isDate(sDate) && (!this.isModeRange || angular.isDate(eDate))) {
-      this.onDateSelected({
-        time : {
-          start : sDate.getTime(),
-          end : eDate ? eDate.getTime() : null
-        }
-      });
-    }
-  }.bind(this));
-};
-
-ngeo.module.controller('ngeoDatePickerController', ngeo.DatePickerController);
-
-goog.provide('ngeo.DecorateGeolocation');
-
-goog.require('goog.asserts');
-goog.require('ngeo');
-
-
-/**
- * Provides a function that adds a "tracking" property (using
- * `Object.defineProperty`) to the `ol.Geolocation` instance, making it
- * possible to activate/deactivate the tracking mode.
- *
- * Example:
- *
- *      <input type="checkbox" ngModel="geolocation.tracking" />
- *
- * See our live example: {@link ../examples/geolocation.html}
- *
- * @typedef {function(ol.Geolocation)}
- * @ngdoc service
- * @ngname ngeoDecorateGeolocation
- */
-ngeo.DecorateGeolocation;
-
-
-/**
- * @param {ol.Geolocation} geolocation Geolocation to decorate.
- * @ngInject
- */
-ngeo.decorateGeolocation = function(geolocation) {
-  goog.asserts.assertInstanceof(geolocation, ol.Geolocation);
-
-  Object.defineProperty(geolocation, 'tracking', {
-    get: function() {
-      return geolocation.getTracking();
-    },
-    set: function(val) {
-      geolocation.setTracking(val);
-    }
-  });
-};
-
-
-ngeo.module.value('ngeoDecorateGeolocation', ngeo.decorateGeolocation);
-
-goog.provide('ngeo.FeatureOverlay');
-goog.provide('ngeo.FeatureOverlayMgr');
-
-goog.require('goog.object');
-goog.require('ngeo');
-goog.require('ol.Collection');
-goog.require('ol.CollectionEvent');
-goog.require('ol.CollectionEventType');
-goog.require('ol.Feature');
-goog.require('ol.layer.Vector');
-goog.require('ol.source.Vector');
-goog.require('ol.style.Style');
-
-
-/**
- * @typedef {{
- *  styleFunction: ol.StyleFunction,
- *  features: Object.<string, ol.Feature>
- * }}
- */
-ngeo.FeatureOverlayGroup;
-
-
-/**
- * Provides a service that wraps an "unmanaged" vector layer,
- * used as a shared vector layer accross the application.
- *
- * Example:
- *
- * The application's main component/controller initializes the feature
- * overlay manager with the map:
- *
- *     ngeoFeatureOverlayMgr.init(map);
- *
- * Once initialized, components of the application can use the manager to
- * create a feature overlay, configuring it with specific styles:
- *
- *     var featureOverlay = ngeoFeatureOverlayMgr.getFeatureOverlay();
- *     featureOverlay.setStyle(myStyle);
- *     featureOverlay.addFeature(myFeature);
- *
- * @constructor
- * @ngdoc service
- * @ngname ngeoFeatureOverlayMgr
- */
-ngeo.FeatureOverlayMgr = function() {
-
-  /**
-   * @type {Object.<string, number>}
-   * @private
-   */
-  this.featureUidToGroupIndex_ = {};
-
-  /**
-   * @type {Array.<ngeo.FeatureOverlayGroup>}
-   * @private
-   */
-  this.groups_ = [];
-
-  /**
-   * @type {ol.source.Vector}
-   * @private
-   */
-  this.source_ = new ol.source.Vector({
-    useSpatialIndex: false
-  });
-
-  /**
-   * @type {ol.layer.Vector}
-   * @private
-   */
-  this.layer_ = new ol.layer.Vector({
-    source: this.source_,
-    style: this.styleFunction_.bind(this),
-    updateWhileAnimating: true,
-    updateWhileInteracting: true
-  });
-
-};
-
-
-/**
- * @param {ol.Feature} feature The feature to add.
- * @param {number} groupIndex The group groupIndex.
- * @protected
- */
-ngeo.FeatureOverlayMgr.prototype.addFeature = function(feature, groupIndex) {
-  goog.asserts.assert(groupIndex >= 0);
-  goog.asserts.assert(groupIndex < this.groups_.length);
-  var featureUid = goog.getUid(feature).toString();
-  this.featureUidToGroupIndex_[featureUid] = groupIndex;
-  this.groups_[groupIndex].features[featureUid] = feature;
-  this.source_.addFeature(feature);
-};
-
-
-/**
- * @param {ol.Feature} feature The feature to add.
- * @param {number} groupIndex The group groupIndex.
- * @protected
- */
-ngeo.FeatureOverlayMgr.prototype.removeFeature = function(feature, groupIndex) {
-  goog.asserts.assert(groupIndex >= 0);
-  goog.asserts.assert(groupIndex < this.groups_.length);
-  var featureUid = goog.getUid(feature).toString();
-  delete this.featureUidToGroupIndex_[featureUid];
-  delete this.groups_[groupIndex].features[featureUid];
-  this.source_.removeFeature(feature);
-};
-
-
-/**
- * @param {number} groupIndex The group groupIndex.
- * @protected
- */
-ngeo.FeatureOverlayMgr.prototype.clear = function(groupIndex) {
-  goog.asserts.assert(groupIndex >= 0);
-  goog.asserts.assert(groupIndex < this.groups_.length);
-  var group = this.groups_[groupIndex];
-  for (var featureUid in group.features) {
-    this.removeFeature(group.features[featureUid], groupIndex);
-  }
-  goog.asserts.assert(goog.object.isEmpty(group.features));
-};
-
-
-/**
- * @return {ol.layer.Vector} The vector layer used internally.
- * @export
- */
-ngeo.FeatureOverlayMgr.prototype.getLayer = function() {
-  return this.layer_;
-};
-
-
-/**
- * @return {ngeo.FeatureOverlay} Feature overlay.
- * @export
- */
-ngeo.FeatureOverlayMgr.prototype.getFeatureOverlay = function() {
-  var groupIndex = this.groups_.length;
-  this.groups_.push({
-    styleFunction: ol.style.defaultStyleFunction,
-    features: {}
-  });
-  return new ngeo.FeatureOverlay(this, groupIndex);
-};
-
-
-/**
- * @param {ol.Map} map Map.
- * @export
- */
-ngeo.FeatureOverlayMgr.prototype.init = function(map) {
-  this.layer_.setMap(map);
-};
-
-
-/**
- * @param {ol.style.Style|Array.<ol.style.Style>|ol.StyleFunction} style
- * Style.
- * @param {number} groupIndex Group index.
- * @protected
- */
-ngeo.FeatureOverlayMgr.prototype.setStyle = function(style, groupIndex) {
-  goog.asserts.assert(groupIndex >= 0);
-  goog.asserts.assert(groupIndex < this.groups_.length);
-  this.groups_[groupIndex].styleFunction = style === null ?
-      ol.style.defaultStyleFunction : ol.style.createStyleFunction(style);
-};
-
-
-/**
- * @param {ol.Feature|ol.render.Feature} feature Feature.
- * @param {number} resolution Resolution.
- * @return {Array.<ol.style.Style>|ol.style.Style} Styles.
- * @private
- */
-ngeo.FeatureOverlayMgr.prototype.styleFunction_ = function(feature, resolution) {
-  var featureUid = goog.getUid(feature).toString();
-  goog.asserts.assert(featureUid in this.featureUidToGroupIndex_);
-  var groupIndex = this.featureUidToGroupIndex_[featureUid];
-  var group = this.groups_[groupIndex];
-  return group.styleFunction(feature, resolution);
-};
-
-
-/**
- * @constructor
- * @param {ngeo.FeatureOverlayMgr} manager The feature overlay manager.
- * @param {number} index This feature overlay's index.
- */
-ngeo.FeatureOverlay = function(manager, index) {
-
-  /**
-   * @type {ngeo.FeatureOverlayMgr}
-   * @private
-   */
-  this.manager_ = manager;
-
-  /**
-   * @type {ol.Collection.<ol.Feature>}
-   * @private
-   */
-  this.features_ = null;
-
-  /**
-   * @type {number}
-   * @private
-   */
-  this.index_ = index;
-};
-
-
-/**
- * Add a feature to the feature overlay.
- * @param {ol.Feature} feature The feature to add.
- * @export
- */
-ngeo.FeatureOverlay.prototype.addFeature = function(feature) {
-  this.manager_.addFeature(feature, this.index_);
-};
-
-
-/**
- * Remove a feature from the feature overlay.
- * @param {ol.Feature} feature The feature to remove.
- * @export
- */
-ngeo.FeatureOverlay.prototype.removeFeature = function(feature) {
-  this.manager_.removeFeature(feature, this.index_);
-};
-
-
-/**
- * Remove all the features from the feature overlay.
- * @export
- */
-ngeo.FeatureOverlay.prototype.clear = function() {
-  this.manager_.clear(this.index_);
-};
-
-
-/**
- * Configure this feature overlay with a feature collection. Features added
- * to the collection are also added to the overlay. Same for removal. If you
- * configure the feature overlay with a feature collection you will use the
- * collection to add and remove features instead of using the overlay's
- * `addFeature`, `removeFeature` and `clear` functions.
- * @param {ol.Collection.<ol.Feature>} features Feature collection.
- * @export
- */
-ngeo.FeatureOverlay.prototype.setFeatures = function(features) {
-  if (this.features_ !== null) {
-    this.features_.clear();
-    ol.events.unlisten(this.features_, ol.CollectionEventType.ADD,
-        this.handleFeatureAdd_, this);
-    ol.events.unlisten(this.features_, ol.CollectionEventType.REMOVE,
-        this.handleFeatureRemove_, this);
-  }
-  if (features !== null) {
-    features.forEach(function(feature) {
-      this.addFeature(feature);
-    }, this);
-    ol.events.listen(features, ol.CollectionEventType.ADD,
-        this.handleFeatureAdd_, this);
-    ol.events.listen(features, ol.CollectionEventType.REMOVE,
-        this.handleFeatureRemove_, this);
-  }
-  this.features_ = features;
-};
-
-
-/**
- * Set a style for the feature overlay.
- * @param {ol.style.Style|Array.<ol.style.Style>|ol.StyleFunction} style
- * Style.
- * @export
- */
-ngeo.FeatureOverlay.prototype.setStyle = function(style) {
-  this.manager_.setStyle(style, this.index_);
-};
-
-
-/**
- * @param {ol.CollectionEvent} evt Feature collection event.
- * @private
- */
-ngeo.FeatureOverlay.prototype.handleFeatureAdd_ = function(evt) {
-  var feature = /** @type {ol.Feature} */ (evt.element);
-  this.addFeature(feature);
-};
-
-
-/**
- * @param {ol.CollectionEvent} evt Feature collection event.
- * @private
- */
-ngeo.FeatureOverlay.prototype.handleFeatureRemove_ = function(evt) {
-  var feature = /** @type {ol.Feature} */ (evt.element);
-  this.removeFeature(feature);
-};
-
-
-ngeo.module.service('ngeoFeatureOverlayMgr', ngeo.FeatureOverlayMgr);
-
-goog.provide('ngeo.Message');
-
-
-/**
- * @enum {string}
- * @export
- */
-ngeo.MessageType = {
-  /**
-   * @type {string}
-   * @export
-   */
-  ERROR: 'error',
-  /**
-   * @type {string}
-   * @export
-   */
-  INFORMATION: 'information',
-  /**
-   * @type {string}
-   * @export
-   */
-  SUCCESS: 'success',
-  /**
-   * @type {string}
-   * @export
-   */
-  WARNING: 'warning'
-};
-
-
-/**
- * Abstract class for services that display messages.
- *
- * @constructor
- */
-ngeo.Message = function() {};
-
-
-/**
- * Show the message.
- * @param {ngeox.Message} message Message.
- * @protected
- */
-ngeo.Message.prototype.showMessage = goog.abstractMethod;
-
-
-/**
- * Show disclaimer message string or object or list of disclame message
- * strings or objects.
- * @param {string|Array.<string>|ngeox.Message|Array.<ngeox.Message>}
- *     object A message or list of messages as text or configuration objects.
- * @export
- */
-ngeo.Message.prototype.show = function(object) {
-  var msgObjects = this.getMessageObjects(object);
-  msgObjects.forEach(this.showMessage, this);
-};
-
-
-/**
- * Display the given error message or list of error messages.
- * @param {string|Array.<string>} message Message or list of messages.
- * @export
- */
-ngeo.Message.prototype.error = function(message) {
-  this.show(this.getMessageObjects(message, ngeo.MessageType.ERROR));
-};
-
-
-/**
- * Display the given info message or list of info messages.
- * @param {string|Array.<string>} message Message or list of messages.
- * @export
- */
-ngeo.Message.prototype.info = function(message) {
-  this.show(this.getMessageObjects(message, ngeo.MessageType.INFORMATION));
-};
-
-
-/**
- * Display the given success message or list of success messages.
- * @param {string|Array.<string>} message Message or list of messages.
- * @export
- */
-ngeo.Message.prototype.success = function(message) {
-  this.show(this.getMessageObjects(message, ngeo.MessageType.SUCCESS));
-};
-
-
-/**
- * Display the given warning message or list of warning messages.
- * @param {string|Array.<string>} message Message or list of messages.
- * @export
- */
-ngeo.Message.prototype.warn = function(message) {
-  this.show(this.getMessageObjects(message, ngeo.MessageType.WARNING));
-};
-
-
-/**
- * Returns an array of message object from any given message string, list of
- * message strings, message object or list message objects. The type can be
- * overriden here as well OR defined (if the message(s) is/are string(s),
- * defaults to 'information').
- * @param {string|Array.<string>|ngeox.Message|Array.<ngeox.Message>}
- *     object A message or list of messages as text or configuration objects.
- * @param {string=} opt_type The type of message to override the messages with.
- * @return {Array.<ngeox.Message>} List of message objects.
- * @protected
- */
-ngeo.Message.prototype.getMessageObjects = function(object, opt_type) {
-  var msgObjects = [];
-  var msgObject = null;
-  var defaultType = ngeo.MessageType.INFORMATION;
-
-  if (typeof object === 'string') {
-    msgObjects.push({
-      msg: object,
-      type: opt_type !== undefined ? opt_type : defaultType
-    });
-  } else if (Array.isArray(object)) {
-    object.forEach(function(msg) {
-      if (typeof object === 'string') {
-        msgObject = {
-          msg: msg,
-          type: opt_type !== undefined ? opt_type : defaultType
-        };
-      } else {
-        msgObject = msg;
-        if (opt_type !== undefined) {
-          msgObject.type = opt_type;
-        }
-      }
-      msgObjects.push(msgObject);
-    }, this);
-  } else {
-    msgObject = object;
-    if (opt_type !== undefined) {
-      msgObject.type = opt_type;
-    }
-    if (msgObject.type === undefined) {
-      msgObject.type = defaultType;
-    }
-    msgObjects.push(msgObject);
-  }
-
-  return msgObjects;
-};
-
-goog.provide('ngeo.Notification');
-
-goog.require('goog.asserts');
-goog.require('ngeo');
-goog.require('ngeo.Message');
-
-
-/**
- * Provides methods to display any sort of messages, notifications, errors,
- * etc. Requires Bootstrap library (both CSS and JS) to display the alerts
- * properly.
- *
- * @constructor
- * @extends {ngeo.Message}
- * @param {angular.$timeout} $timeout Angular timeout service.
- * @ngdoc service
- * @ngname ngeoNotification
- * @ngInject
- */
-ngeo.Notification = function($timeout) {
-
-  goog.base(this);
-
-  /**
-   * @type {angular.$timeout}
-   * @private
-   */
-  this.timeout_ = $timeout;
-
-  var container = angular.element('<div class="ngeo-notification"></div>');
-  angular.element(document.body).append(container);
-
-  /**
-   * @type {angular.JQLite}
-   * @private
-   */
-  this.container_ = container;
-
-  /**
-   * @type {Object.<number, ngeo.Notification.CacheItem>}
-   * @private
-   */
-  this.cache_ = {};
-
-};
-goog.inherits(ngeo.Notification, ngeo.Message);
-
-
-/**
- * Default delay (in milliseconds) a message should be displayed.
- * @type {number}
- * @private
- */
-ngeo.Notification.DEFAULT_DELAY_ = 7000;
-
-
-// MAIN API METHODS
-
-
-/**
- * Display the given message string or object or list of message strings or
- * objects.
- * @param {string|Array.<string>|ngeox.Message|Array.<ngeox.Message>}
- *     object A message or list of messages as text or configuration objects.
- * @export
- */
-ngeo.Notification.prototype.notify = function(object) {
-  this.show(object);
-};
-
-
-/**
- * Clears all messages that are currently being shown.
- * @export
- */
-ngeo.Notification.prototype.clear = function() {
-  for (var uid in this.cache_) {
-    this.clearMessageByCacheItem_(this.cache_[parseInt(uid, 10)]);
-  }
-};
-
-
-/**
- * Show the message.
- * @param {ngeox.Message} message Message.
- * @protected
- */
-ngeo.Notification.prototype.showMessage = function(message) {
-  var type = message.type;
-  goog.asserts.assertString(type, 'Type should be set.');
-
-  var classNames = ['alert', 'fade'];
-  switch (type) {
-    case ngeo.MessageType.ERROR:
-      classNames.push('alert-danger');
-      break;
-    case ngeo.MessageType.INFORMATION:
-      classNames.push('alert-info');
-      break;
-    case ngeo.MessageType.SUCCESS:
-      classNames.push('alert-success');
-      break;
-    case ngeo.MessageType.WARNING:
-      classNames.push('alert-warning');
-      break;
-    default:
-      break;
-  }
-
-  var el = angular.element('<div class="' + classNames.join(' ') + '"></div>');
-  var container;
-
-  if (message.target) {
-    container = angular.element(message.target);
-  } else {
-    container = this.container_;
-  }
-
-  container.append(el);
-  el.html(message.msg).addClass('in');
-
-  var delay = message.delay !== undefined ? message.delay :
-      ngeo.Notification.DEFAULT_DELAY_;
-
-  var item = /** @type {ngeo.Notification.CacheItem} */ ({
-    el: el
-  });
-
-  // Keep a reference to the promise, in case we want to manually cancel it
-  // before the delay
-  var uid = goog.getUid(el);
-  item.promise = this.timeout_(function() {
-    el.alert('close');
-    delete this.cache_[uid];
-  }.bind(this), delay);
-
-  this.cache_[uid] = item;
-};
-
-
-/**
- * Clear a message using its cache item.
- * @param {ngeo.Notification.CacheItem} item Cache item.
- * @private
- */
-ngeo.Notification.prototype.clearMessageByCacheItem_ = function(item) {
-  var el = item.el;
-  var promise = item.promise;
-  var uid = goog.getUid(el);
-
-  // Close the message
-  el.alert('close');
-
-  // Cancel timeout in case we want to stop before delay. If called by the
-  // timeout itself, then this has no consequence.
-  this.timeout_.cancel(promise);
-
-  // Delete the cache item
-  delete this.cache_[uid];
-};
-
-
-/**
- * @typedef {{
- *     el: angular.JQLite,
- *     promise: angular.$q.Promise
- * }}
- */
-ngeo.Notification.CacheItem;
-
-
-ngeo.module.service('ngeoNotification', ngeo.Notification);
-
-goog.provide('ngeo.DesktopGeolocationController');
-goog.provide('ngeo.desktopGeolocationDirective');
-
-goog.require('ngeo');
-goog.require('ngeo.DecorateGeolocation');
-goog.require('ngeo.FeatureOverlay');
-goog.require('ngeo.FeatureOverlayMgr');
-goog.require('ngeo.Notification');
-goog.require('ol.Feature');
-goog.require('ol.Geolocation');
-goog.require('ol.Map');
-goog.require('ol.geom.Point');
-
-
-/**
- * @enum {string}
- * @export
- */
-ngeo.DesktopGeolocationEventType = {
-  /**
-   * Triggered when an error occures.
-   */
-  ERROR: 'desktop-geolocation-error'
-};
-
-
-/**
- * Provide a "desktop geolocation" directive.
- *
- * Example:
- *
- *      <button ngeo-desktop-geolocation=""
- *        ngeo-desktop-geolocation-map="ctrl.map"
- *        ngeo-desktop-geolocation-options="ctrl.desktopGeolocationOptions">
- *      </button>
- *
- * See our live example: {@link ../examples/desktopgeolocation.html}
- *
- * @htmlAttribute {ol.Map} gmf-geolocation-map The map.
- * @htmlAttribute {ngeox.DesktopGeolocationDirectiveOptions} gmf-geolocation-options The options.
- * @return {angular.Directive} The Directive Definition Object.
- * @ngInject
- * @ngdoc directive
- * @ngname ngeoDesktopGeolocation
- */
-ngeo.desktopGeolocationDirective = function() {
-  return {
-    restrict: 'A',
-    scope: {
-      'getDesktopMapFn': '&ngeoDesktopGeolocationMap',
-      'getDesktopGeolocationOptionsFn': '&ngeoDesktopGeolocationOptions'
-    },
-    controller: 'NgeoDesktopGeolocationController',
-    controllerAs: 'ctrl'
-  };
-};
-
-
-ngeo.module.directive('ngeoDesktopGeolocation',
-    ngeo.desktopGeolocationDirective);
-
-
-/**
- * @constructor
- * @param {angular.Scope} $scope The directive's scope.
- * @param {angular.JQLite} $element Element.
- * @param {ngeo.DecorateGeolocation} ngeoDecorateGeolocation Decorate
- *     Geolocation service.
- * @param {ngeo.FeatureOverlayMgr} ngeoFeatureOverlayMgr The ngeo feature
- *     overlay manager service.
- * @param {ngeo.Notification} ngeoNotification Ngeo notification service.
- * @export
- * @ngInject
- * @ngdoc controller
- * @ngname NgeoDesktopGeolocationController
- */
-ngeo.DesktopGeolocationController = function($scope, $element,
-    ngeoDecorateGeolocation, ngeoFeatureOverlayMgr, ngeoNotification) {
-
-  $element.on('click', this.toggle.bind(this));
-
-  var map = $scope['getDesktopMapFn']();
-  goog.asserts.assertInstanceof(map, ol.Map);
-
-  /**
-   * @type {!ol.Map}
-   * @private
-   */
-  this.map_ = map;
-
-  var options = $scope['getDesktopGeolocationOptionsFn']() || {};
-  goog.asserts.assertObject(options);
-
-  /**
-   * @type {!angular.Scope}
-   * @private
-   */
-  this.$scope_ = $scope;
-
-  /**
-   * @type {ngeo.Notification}
-   * @private
-   */
-  this.notification_ = ngeoNotification;
-
-  /**
-   * @type {ngeo.FeatureOverlay}
-   * @private
-   */
-  this.featureOverlay_ = ngeoFeatureOverlayMgr.getFeatureOverlay();
-
-  /**
-   * @type {ol.Geolocation}
-   * @private
-   */
-  this.geolocation_ = new ol.Geolocation({
-    projection: map.getView().getProjection()
-  });
-
-  // handle geolocation error.
-  this.geolocation_.on('error', function(error) {
-    this.deactivate_();
-    this.notification_.error(error.message);
-    $scope.$emit(ngeo.DesktopGeolocationEventType.ERROR, error);
-  }, this);
-
-  /**
-   * @type {ol.Feature}
-   * @private
-   */
-  this.positionFeature_ = new ol.Feature();
-
-  if (options.positionFeatureStyle) {
-    this.positionFeature_.setStyle(options.positionFeatureStyle);
-  }
-
-  /**
-   * @type {ol.Feature}
-   * @private
-   */
-  this.accuracyFeature_ = new ol.Feature();
-
-  if (options.accuracyFeatureStyle) {
-    this.accuracyFeature_.setStyle(options.accuracyFeatureStyle);
-  }
-
-  /**
-   * @type {number|undefined}
-   * @private
-   */
-  this.zoom_ = options.zoom;
-
-  /**
-   * @type {boolean}
-   * @private
-   */
-  this.active_ = false;
-
-  ol.events.listen(
-      this.geolocation_,
-      ol.Object.getChangeEventType(ol.GeolocationProperty.ACCURACY_GEOMETRY),
-      function() {
-        this.accuracyFeature_.setGeometry(
-            this.geolocation_.getAccuracyGeometry());
-      },
-      this);
-
-  ol.events.listen(
-      this.geolocation_,
-      ol.Object.getChangeEventType(ol.GeolocationProperty.POSITION),
-      function(e) {
-        this.setPosition_(e);
-      },
-      this);
-
-  ngeoDecorateGeolocation(this.geolocation_);
-};
-
-
-/**
- * @export
- */
-ngeo.DesktopGeolocationController.prototype.toggle = function() {
-  if (this.active_) {
-    this.deactivate_();
-  } else {
-    this.activate_();
-  }
-};
-
-
-/**
- * @private
- */
-ngeo.DesktopGeolocationController.prototype.activate_ = function() {
-  this.featureOverlay_.addFeature(this.positionFeature_);
-  this.featureOverlay_.addFeature(this.accuracyFeature_);
-  this.geolocation_.setTracking(true);
-  this.active_ = true;
-};
-
-
-/**
- * @private
- */
-ngeo.DesktopGeolocationController.prototype.deactivate_ = function() {
-  this.featureOverlay_.clear();
-  this.active_ = false;
-  this.notification_.clear();
-};
-
-
-/**
- * @param {ol.ObjectEvent} event Event.
- * @private
- */
-ngeo.DesktopGeolocationController.prototype.setPosition_ = function(event) {
-  var position = /** @type {ol.Coordinate} */ (this.geolocation_.getPosition());
-  var point = new ol.geom.Point(position);
-
-  this.positionFeature_.setGeometry(point);
-  this.map_.getView().setCenter(position);
-
-  if (this.zoom_ !== undefined) {
-    this.map_.getView().setZoom(this.zoom_);
-  }
-
-  this.geolocation_.setTracking(false);
-};
-
-
-ngeo.module.controller('NgeoDesktopGeolocationController',
-    ngeo.DesktopGeolocationController);
-
-goog.provide('ngeo.DecorateInteraction');
-
-goog.require('goog.asserts');
-goog.require('ngeo');
-
-
-/**
- * Provides a function that adds an "active" property (using
- * `Object.defineProperty`) to an interaction, making it possible to use ngModel
- * to activate/deactivate interactions.
- *
- * Example:
- *
- *      <input type="checkbox" ngModel="interaction.active" />
- *
- * See our live example: {@link ../examples/interactiontoggle.html}
- *
- * @typedef {function(ol.interaction.Interaction)}
- * @ngdoc service
- * @ngname ngeoDecorateInteraction
- */
-ngeo.DecorateInteraction;
-
-
-/**
- * @param {ol.interaction.Interaction} interaction Interaction to decorate.
- */
-ngeo.decorateInteraction = function(interaction) {
-  goog.asserts.assertInstanceof(interaction, ol.interaction.Interaction);
-
-  Object.defineProperty(interaction, 'active', {
-    get: function() {
-      return interaction.getActive();
-    },
-    set: function(val) {
-      interaction.setActive(val);
-    }
-  });
-};
-
-
-ngeo.module.value('ngeoDecorateInteraction', ngeo.decorateInteraction);
 
 goog.provide('ngeo.filters');
 
@@ -105579,6 +105449,1620 @@ ngeo.interaction.Measure.prototype.handleDrawInteractionActiveChange_ =
       }
     };
 
+goog.provide('ngeo.interaction.MeasureArea');
+
+goog.require('ngeo.interaction.Measure');
+goog.require('ol.geom.Polygon');
+goog.require('ol.interaction.Draw');
+
+
+/**
+ * @classdesc
+ * Interaction dedicated to measure length.
+ *
+ * See our live example: {@link ../examples/measure.html}
+ *
+ * @constructor
+ * @extends {ngeo.interaction.Measure}
+ * @param {ngeox.unitPrefix} format The format function
+ * @param {ngeox.interaction.MeasureOptions=} opt_options Options
+ * @export
+ */
+ngeo.interaction.MeasureArea = function(format, opt_options) {
+
+  var options = opt_options !== undefined ? opt_options : {};
+
+  goog.base(this, options);
+
+
+  /**
+   * Message to show after the first point is clicked.
+   * @type {Element}
+   */
+  this.continueMsg = options.continueMsg !== undefined ? options.continueMsg :
+      goog.dom.createDom(goog.dom.TagName.SPAN, {},
+          'Click to continue drawing the polygon.',
+          goog.dom.createDom(goog.dom.TagName.BR),
+          'Double-click or click starting point to finish.');
+
+  /**
+   * The format function
+   * @type {ngeox.unitPrefix}
+   */
+  this.format = format;
+
+};
+goog.inherits(ngeo.interaction.MeasureArea, ngeo.interaction.Measure);
+
+
+/**
+ * @inheritDoc
+ */
+ngeo.interaction.MeasureArea.prototype.createDrawInteraction = function(style,
+    source) {
+
+  return new ol.interaction.Draw(
+      /** @type {olx.interaction.DrawOptions} */ ({
+        type: 'Polygon',
+        source: source,
+        style: style
+      }));
+
+};
+
+
+/**
+ * @inheritDoc
+ */
+ngeo.interaction.MeasureArea.prototype.handleMeasure = function(callback) {
+  var geom = /** @type {ol.geom.Polygon} */
+      (this.sketchFeature.getGeometry());
+  var proj = this.getMap().getView().getProjection();
+  var dec = this.decimals;
+  var output = ngeo.interaction.Measure.getFormattedArea(geom, proj, dec, this.format);
+  var verticesCount = geom.getCoordinates()[0].length;
+  var coord = null;
+  if (verticesCount > 2) {
+    coord = geom.getInteriorPoint().getCoordinates();
+  }
+  callback(output, coord);
+};
+
+goog.provide('ngeo.interaction.MeasureLength');
+
+goog.require('ngeo.interaction.Measure');
+goog.require('ol.geom.LineString');
+goog.require('ol.interaction.Draw');
+
+
+/**
+ * @classdesc
+ * Interaction dedicated to measure length.
+ *
+ * See our live example: {@link ../examples/measure.html}
+ *
+ * @constructor
+ * @extends {ngeo.interaction.Measure}
+ * @param {ngeox.unitPrefix} format The format function
+ * @param {ngeox.interaction.MeasureOptions=} opt_options Options
+ * @export
+ */
+ngeo.interaction.MeasureLength = function(format, opt_options) {
+
+  var options = opt_options !== undefined ? opt_options : {};
+
+  goog.base(this, options);
+
+
+  /**
+   * Message to show after the first point is clicked.
+   * @type {Element}
+   */
+  this.continueMsg = options.continueMsg !== undefined ? options.continueMsg :
+      goog.dom.createDom(goog.dom.TagName.SPAN, {},
+          'Click to continue drawing the line.',
+          goog.dom.createDom(goog.dom.TagName.BR),
+          'Double-click or click last point to finish.');
+
+  /**
+   * The format function
+   * @type {ngeox.unitPrefix}
+   */
+  this.format = format;
+
+};
+goog.inherits(ngeo.interaction.MeasureLength, ngeo.interaction.Measure);
+
+
+/**
+ * @inheritDoc
+ */
+ngeo.interaction.MeasureLength.prototype.createDrawInteraction = function(style,
+    source) {
+
+  return new ol.interaction.Draw(
+      /** @type {olx.interaction.DrawOptions} */ ({
+        type: 'LineString',
+        source: source,
+        style: style
+      }));
+
+};
+
+
+/**
+ * @inheritDoc
+ */
+ngeo.interaction.MeasureLength.prototype.handleMeasure = function(callback) {
+  var geom = /** @type {ol.geom.LineString} */
+      (this.sketchFeature.getGeometry());
+  var proj = this.getMap().getView().getProjection();
+  var dec = this.decimals;
+  var output = ngeo.interaction.Measure.getFormattedLength(geom, proj, dec, this.format);
+  var coord = geom.getLastCoordinate();
+  callback(output, coord);
+};
+
+goog.provide('ngeo.CreatefeatureController');
+goog.provide('ngeo.createfeatureDirective');
+
+goog.require('ngeo');
+goog.require('ngeo.EventHelper');
+/** @suppress {extraRequire} */
+goog.require('ngeo.filters');
+goog.require('ngeo.interaction.MeasureArea');
+goog.require('ngeo.interaction.MeasureLength');
+goog.require('ol.Feature');
+goog.require('ol.geom.GeometryType');
+goog.require('ol.interaction.Draw');
+goog.require('ol.style.Style');
+
+
+/**
+ * A directive used to draw vector features of a single geometry type using
+ * either a 'draw' or 'measure' interaction. Once a feature is finished being
+ * drawn, it is added to a collection of features.
+ *
+ * The geometry types supported are:
+ *  - Point
+ *  - LineString
+ *  - Polygon
+ *
+ * Example:
+ *
+ *     <a
+ *       href
+ *       translate
+ *       ngeo-btn
+ *       ngeo-createfeature
+ *       ngeo-createfeature-active="ctrl.createPointActive"
+ *       ngeo-createfeature-features="ctrl.features"
+ *       ngeo-createfeature-geom-type="ctrl.pointGeomType"
+ *       ngeo-createfeature-map="::ctrl.map"
+ *       class="btn btn-default ngeo-createfeature-point"
+ *       ng-class="{active: ctrl.createPointActive}"
+ *       ng-model="ctrl.createPointActive">
+ *     </a>
+ *
+ * @htmlAttribute {boolean} ngeo-createfeature-active Whether the directive is
+ *     active or not.
+ * @htmlAttribute {ol.Collection} ngeo-createfeature-features The collection of
+ *     features where to add those created by this directive.
+ * @htmlAttribute {string} ngeo-createfeature-geom-type Determines the type
+ *     of geometry this directive should draw.
+ * @htmlAttribute {ol.Map} ngeo-createfeature-map The map.
+ * @return {angular.Directive} The directive specs.
+ * @ngInject
+ * @ngdoc directive
+ * @ngname ngeoCreatefeature
+ */
+ngeo.createfeatureDirective = function() {
+  return {
+    controller: 'ngeoCreatefeatureController',
+    bindToController: true,
+    scope: {
+      'active': '=ngeoCreatefeatureActive',
+      'features': '=ngeoCreatefeatureFeatures',
+      'geomType': '=ngeoCreatefeatureGeomType',
+      'map': '=ngeoCreatefeatureMap'
+    },
+    controllerAs: 'cfCtrl'
+  };
+};
+
+ngeo.module.directive('ngeoCreatefeature', ngeo.createfeatureDirective);
+
+
+/**
+ * @param {gettext} gettext Gettext service.
+ * @param {angular.$compile} $compile Angular compile service.
+ * @param {angular.$filter} $filter Angular filter
+ * @param {!angular.Scope} $scope Scope.
+ * @param {ngeo.EventHelper} ngeoEventHelper Ngeo event helper service
+ * @constructor
+ * @ngInject
+ * @ngdoc controller
+ * @ngname ngeoCreatefeatureController
+ */
+ngeo.CreatefeatureController = function(gettext, $compile, $filter, $scope,
+    ngeoEventHelper) {
+
+  /**
+   * @type {boolean}
+   * @export
+   */
+  this.active = this.active === true;
+
+  /**
+   * @type {ol.Collection.<ol.Feature>}
+   * @export
+   */
+  this.features;
+
+  /**
+   * @type {string}
+   * @export
+   */
+  this.geomType;
+
+  /**
+   * @type {ol.Map}
+   * @export
+   */
+  this.map;
+
+  /**
+   * @type {ngeo.EventHelper}
+   * @private
+   */
+  this.ngeoEventHelper_ = ngeoEventHelper;
+
+  // Create the draw or measure interaction depending on the geometry type
+  var interaction;
+  var helpMsg;
+  var contMsg;
+  if (this.geomType === ngeo.GeometryType.POINT) {
+    interaction = new ol.interaction.Draw({
+      type: ol.geom.GeometryType.POINT
+    });
+  } else if (this.geomType === ngeo.GeometryType.LINE_STRING) {
+    helpMsg = gettext('Click to start drawing length');
+    contMsg = gettext(
+      'Click to continue drawing<br/>' +
+      'Double-click or click last point to finish'
+    );
+
+    interaction = new ngeo.interaction.MeasureLength(
+      $filter('ngeoUnitPrefix'),
+      {
+        style: new ol.style.Style(),
+        startMsg: $compile('<div translate>' + helpMsg + '</div>')($scope)[0],
+        continueMsg: $compile('<div translate>' + contMsg + '</div>')($scope)[0]
+      }
+    );
+  } else if (this.geomType === ngeo.GeometryType.POLYGON) {
+    helpMsg = gettext('Click to start drawing area');
+    contMsg = gettext(
+      'Click to continue drawing<br/>' +
+      'Double-click or click last starting point to finish'
+    );
+
+    interaction = new ngeo.interaction.MeasureArea(
+      $filter('ngeoUnitPrefix'),
+      {
+        style: new ol.style.Style(),
+        startMsg: $compile('<div translate>' + helpMsg + '</div>')($scope)[0],
+        continueMsg: $compile('<div translate>' + contMsg + '</div>')($scope)[0]
+      }
+    );
+  }
+
+  goog.asserts.assert(interaction);
+
+  interaction.setActive(this.active);
+  this.map.addInteraction(interaction);
+
+  /**
+   * The draw or measure interaction responsible of drawing the vector feature.
+   * The actual type depends on the geometry type.
+   * @type {ol.interaction.Interaction}
+   * @private
+   */
+  this.interaction_ = interaction;
+
+
+  // == Event listeners ==
+  $scope.$watch(
+    function() {
+      return this.active;
+    }.bind(this),
+    function(newVal) {
+      this.interaction_.setActive(newVal);
+    }.bind(this)
+  );
+
+  var uid = goog.getUid(this);
+  if (interaction instanceof ol.interaction.Draw) {
+    this.ngeoEventHelper_.addListenerKey(
+      uid,
+      ol.events.listen(
+        interaction,
+        ol.interaction.DrawEventType.DRAWEND,
+        this.handleDrawEnd_,
+        this
+      ),
+      true
+    );
+  } else if (interaction instanceof ngeo.interaction.MeasureLength ||
+     interaction instanceof ngeo.interaction.MeasureArea) {
+    this.ngeoEventHelper_.addListenerKey(
+      uid,
+      ol.events.listen(
+        interaction,
+        ngeo.MeasureEventType.MEASUREEND,
+        this.handleDrawEnd_,
+        this
+      ),
+      true
+    );
+  }
+
+  $scope.$on('$destroy', this.handleDestroy_.bind(this));
+
+};
+
+
+/**
+ * Called when a feature is finished being drawn. Add the feature to the
+ * collection.
+ * @param {ol.interaction.DrawEvent|ngeo.MeasureEvent} event Event.
+ * @export
+ */
+ngeo.CreatefeatureController.prototype.handleDrawEnd_ = function(event) {
+  var feature = new ol.Feature(event.feature.getGeometry());
+  this.features.push(feature);
+};
+
+
+/**
+ * Cleanup event listeners and remove the interaction from the map.
+ * @private
+ */
+ngeo.CreatefeatureController.prototype.handleDestroy_ = function() {
+  var uid = goog.getUid(this);
+  this.ngeoEventHelper_.clearListenerKey(uid);
+  this.map.removeInteraction(this.interaction_);
+};
+
+
+ngeo.module.controller(
+  'ngeoCreatefeatureController', ngeo.CreatefeatureController);
+
+goog.provide('ngeo.Time');
+
+goog.require('ngeo');
+
+/**
+ * ngeo - Time service
+ * @constructor
+ * @ngInject
+ * @ngdoc service
+ * @ngname ngeoTime
+ */
+ngeo.Time  = function() {
+
+};
+
+
+/**
+ * Get options regarding the time property of a node;
+ *
+ * @param {ngeox.TimeProperty} time the time property of a node
+ * @return {{
+ *  minDate : number,
+ *  maxDate : number,
+ *  values : (Array<number>|number)
+ * }} - Configuration for the UI components
+ * @export
+ */
+ngeo.Time.prototype.getOptions = function(time) {
+
+  var minDate = new Date(time.minValue);
+  var maxDate = new Date(time.maxValue);
+
+  var minDefaultDate = (time.minDefValue) ?
+      new Date(time.minDefValue) : minDate;
+  var maxDefaultDate = (time.maxDefValue) ?
+      new Date(time.maxDefValue) : maxDate;
+
+  var defaultValues = (time.mode === 'range') ?
+      [minDefaultDate.getTime(), maxDefaultDate.getTime()] :
+      minDefaultDate.getTime();
+
+  return {
+    minDate: minDate.getTime(),
+    maxDate: maxDate.getTime(),
+    values: defaultValues
+  };
+};
+
+
+/**
+ * Time.prototype.getUTCDate - Get UTC date from a local date object
+ *
+ * @param  {Object} localDate loacl date object in
+ * @return {Object} UTC date
+ * @export
+ */
+ngeo.Time.prototype.getUTCDate = function(localDate) {
+  return new Date(
+    localDate.getUTCFullYear(),
+    localDate.getUTCMonth(),
+    localDate.getUTCDate());
+};
+
+
+ngeo.module.service('ngeoTime', ngeo.Time);
+
+goog.provide('ngeo.DatePickerDirective');
+goog.provide('ngeo.DatePickerController');
+
+goog.require('goog.asserts');
+goog.require('ngeo');
+goog.require('ngeo.Time');
+
+ngeo.module.value('ngeoDatePickerTemplateUrl',
+    /**
+     * @param {angular.JQLite} element Element.
+     * @param {angular.Attributes} attrs Attributes.
+     * @return {string} Template URL.
+     */
+    function(element, attrs) {
+      var templateUrl = attrs['ngeoDatePickerTemplateUrl'];
+      return templateUrl !== undefined ? templateUrl :
+          ngeo.baseTemplateUrl + '/datepicker.html';
+    });
+
+
+/**
+ * Provide a directive to select a signle date or a range of dates
+ * @param {string|function(!angular.JQLite=, !angular.Attributes=)}
+ * ngeoDatePickerTemplateUrl Template for the directive.
+ * @param  {angular.$timeout} $timeout angular timeout service
+ * @return {angular.Directive} The directive specs.
+ * @ngInject
+ * @ngdoc directive
+ * @ngname ngeoDatePicker
+ */
+ngeo.DatePicker = function(ngeoDatePickerTemplateUrl,  $timeout) {
+  return {
+    scope : {
+      onDateSelected : '&',
+      time : '='
+    },
+    bindToController : true,
+    controller : 'ngeoDatePickerController',
+    controllerAs : 'datepickerCtrl',
+    restrict: 'AE',
+    templateUrl : ngeoDatePickerTemplateUrl,
+    link: function(scope, element, attrs, ctrl) {
+
+      var lang =  ctrl.gettextCatalog_.getCurrentLanguage();
+      $['datepicker']['setDefaults']($['datepicker']['regional'][lang]);
+
+      ctrl.sdateOptions = angular.extend({}, ctrl.sdateOptions, {
+        'onClose' : function(selectedDate) {
+          if (selectedDate) {
+            $(element[0]).find('input[name="edate"]').datepicker('option', 'minDate', selectedDate);
+          }
+        }
+      });
+
+      ctrl.edateOptions = angular.extend({}, ctrl.edateOptions, {
+        'onClose' : function(selectedDate) {
+          if (selectedDate) {
+            $(element[0]).find('input[name="sdate"]').datepicker('option', 'maxDate', selectedDate);
+          }
+        }
+      });
+
+      angular.element('body').on('hidden.bs.popover', function() {
+        var dp = angular.element('#ui-datepicker-div');
+        if (dp && dp.css('display') === 'block') {
+          $(element[0]).find('input[name$="date"]').datepicker('hide');
+        }
+      });
+
+      $timeout(function() {
+        angular.element('#ui-datepicker-div').on('mousedown', function(e) {
+          e.stopPropagation();
+        });
+      });
+    }
+  };
+};
+
+ngeo.module.directive('ngeoDatePicker', ngeo.DatePicker);
+
+
+/**
+ * DatePickerController - directive conttroller
+ * @param {!angular.Scope} $scope Angular scope.
+ * @param {angular.$injector} $injector injector.
+ * @param {ngeo.Time} ngeoTime time service.
+ * @constructor
+ * @export
+ * @ngInject
+ * @ngdoc controller
+ * @ngname ngeoDatePickerController
+ */
+ngeo.DatePickerController = function($scope, $injector, ngeoTime) {
+
+  /**
+   * @type {ngeo.Time}
+   * @private
+   */
+  this.ngeoTime_ = ngeoTime;
+
+  /**
+   * @type {ngeox.TimeProperty}
+   * @export
+   */
+  this.time;
+
+  //fetch the initial options for the component
+  var initialOptions_ = this.ngeoTime_.getOptions(this.time);
+
+  /**
+   * The gettext catalog
+   * @type {angularGettext.Catalog}
+   * @private
+   */
+  this.gettextCatalog_ = $injector.get('gettextCatalog');
+
+
+  /**
+   * If the component is used to select a date range
+   * @type boolean
+   * @export
+   */
+  this.isModeRange = this.time.mode === 'range';
+
+
+  /**
+   * Function called after date(s) changed/selected
+   * @function
+   * @export
+   */
+  this.onDateSelected;
+
+
+  /**
+   * initial min date for the datepicker
+   * @type {Date}
+   */
+  this.initialMinDate = new Date(initialOptions_.minDate);
+
+  /**
+   * initial max date for the datepickeronDateSelected
+   * @type {Date}
+   */
+  this.initialMaxDate = new Date(initialOptions_.maxDate);
+
+  /**
+   * Datepicker options for the second datepicker (only for range mode)
+   * @type {Object}
+   * @export
+   */
+  this.edateOptions = {
+    'minDate' : this.initialMinDate,
+    'maxDate' : this.initialMaxDate,
+    'changeMonth': true,
+    'changeYear': true
+  };
+
+  /**
+   * Datepicker options for the first datepicker
+   * @type {Object}
+   * @export
+   */
+  this.sdateOptions = {
+    'minDate' : this.initialMinDate,
+    'maxDate' : this.initialMaxDate,
+    'changeMonth': true,
+    'changeYear': true
+  };
+
+  /**
+   * Start date model for the first date picker
+   * @type {Date}
+   * @export
+   */
+  this.sdate;
+
+  /**
+   * End date model for the second datepicker (only for range mode)
+   * @type {Date}
+   * @export
+   */
+  this.edate;
+
+  if (this.isModeRange) {
+    goog.asserts.assertArray(initialOptions_.values);
+    this.sdate = new Date(initialOptions_.values[0]);
+    this.edate = new Date(initialOptions_.values[1]);
+  } else {
+    goog.asserts.assertNumber(initialOptions_.values);
+    this.sdate = new Date(initialOptions_.values);
+  }
+
+  $scope.$watchGroup(['datepickerCtrl.sdate', 'datepickerCtrl.edate'], function(newDates, oldDates) {
+    var sDate = newDates[0];
+    var eDate = newDates[1];
+
+    if (angular.isDate(sDate) && (!this.isModeRange || angular.isDate(eDate))) {
+      this.onDateSelected({
+        time : {
+          start : sDate.getTime(),
+          end : eDate ? eDate.getTime() : null
+        }
+      });
+    }
+  }.bind(this));
+};
+
+ngeo.module.controller('ngeoDatePickerController', ngeo.DatePickerController);
+
+goog.provide('ngeo.DecorateGeolocation');
+
+goog.require('goog.asserts');
+goog.require('ngeo');
+
+
+/**
+ * Provides a function that adds a "tracking" property (using
+ * `Object.defineProperty`) to the `ol.Geolocation` instance, making it
+ * possible to activate/deactivate the tracking mode.
+ *
+ * Example:
+ *
+ *      <input type="checkbox" ngModel="geolocation.tracking" />
+ *
+ * See our live example: {@link ../examples/geolocation.html}
+ *
+ * @typedef {function(ol.Geolocation)}
+ * @ngdoc service
+ * @ngname ngeoDecorateGeolocation
+ */
+ngeo.DecorateGeolocation;
+
+
+/**
+ * @param {ol.Geolocation} geolocation Geolocation to decorate.
+ * @ngInject
+ */
+ngeo.decorateGeolocation = function(geolocation) {
+  goog.asserts.assertInstanceof(geolocation, ol.Geolocation);
+
+  Object.defineProperty(geolocation, 'tracking', {
+    get: function() {
+      return geolocation.getTracking();
+    },
+    set: function(val) {
+      geolocation.setTracking(val);
+    }
+  });
+};
+
+
+ngeo.module.value('ngeoDecorateGeolocation', ngeo.decorateGeolocation);
+
+goog.provide('ngeo.FeatureOverlay');
+goog.provide('ngeo.FeatureOverlayMgr');
+
+goog.require('goog.object');
+goog.require('ngeo');
+goog.require('ol.Collection');
+goog.require('ol.CollectionEvent');
+goog.require('ol.CollectionEventType');
+goog.require('ol.Feature');
+goog.require('ol.layer.Vector');
+goog.require('ol.source.Vector');
+goog.require('ol.style.Style');
+
+
+/**
+ * @typedef {{
+ *  styleFunction: ol.StyleFunction,
+ *  features: Object.<string, ol.Feature>
+ * }}
+ */
+ngeo.FeatureOverlayGroup;
+
+
+/**
+ * Provides a service that wraps an "unmanaged" vector layer,
+ * used as a shared vector layer accross the application.
+ *
+ * Example:
+ *
+ * The application's main component/controller initializes the feature
+ * overlay manager with the map:
+ *
+ *     ngeoFeatureOverlayMgr.init(map);
+ *
+ * Once initialized, components of the application can use the manager to
+ * create a feature overlay, configuring it with specific styles:
+ *
+ *     var featureOverlay = ngeoFeatureOverlayMgr.getFeatureOverlay();
+ *     featureOverlay.setStyle(myStyle);
+ *     featureOverlay.addFeature(myFeature);
+ *
+ * @constructor
+ * @ngdoc service
+ * @ngname ngeoFeatureOverlayMgr
+ */
+ngeo.FeatureOverlayMgr = function() {
+
+  /**
+   * @type {Object.<string, number>}
+   * @private
+   */
+  this.featureUidToGroupIndex_ = {};
+
+  /**
+   * @type {Array.<ngeo.FeatureOverlayGroup>}
+   * @private
+   */
+  this.groups_ = [];
+
+  /**
+   * @type {ol.source.Vector}
+   * @private
+   */
+  this.source_ = new ol.source.Vector({
+    useSpatialIndex: false
+  });
+
+  /**
+   * @type {ol.layer.Vector}
+   * @private
+   */
+  this.layer_ = new ol.layer.Vector({
+    source: this.source_,
+    style: this.styleFunction_.bind(this),
+    updateWhileAnimating: true,
+    updateWhileInteracting: true
+  });
+
+};
+
+
+/**
+ * @param {ol.Feature} feature The feature to add.
+ * @param {number} groupIndex The group groupIndex.
+ * @protected
+ */
+ngeo.FeatureOverlayMgr.prototype.addFeature = function(feature, groupIndex) {
+  goog.asserts.assert(groupIndex >= 0);
+  goog.asserts.assert(groupIndex < this.groups_.length);
+  var featureUid = goog.getUid(feature).toString();
+  this.featureUidToGroupIndex_[featureUid] = groupIndex;
+  this.groups_[groupIndex].features[featureUid] = feature;
+  this.source_.addFeature(feature);
+};
+
+
+/**
+ * @param {ol.Feature} feature The feature to add.
+ * @param {number} groupIndex The group groupIndex.
+ * @protected
+ */
+ngeo.FeatureOverlayMgr.prototype.removeFeature = function(feature, groupIndex) {
+  goog.asserts.assert(groupIndex >= 0);
+  goog.asserts.assert(groupIndex < this.groups_.length);
+  var featureUid = goog.getUid(feature).toString();
+  delete this.featureUidToGroupIndex_[featureUid];
+  delete this.groups_[groupIndex].features[featureUid];
+  this.source_.removeFeature(feature);
+};
+
+
+/**
+ * @param {number} groupIndex The group groupIndex.
+ * @protected
+ */
+ngeo.FeatureOverlayMgr.prototype.clear = function(groupIndex) {
+  goog.asserts.assert(groupIndex >= 0);
+  goog.asserts.assert(groupIndex < this.groups_.length);
+  var group = this.groups_[groupIndex];
+  for (var featureUid in group.features) {
+    this.removeFeature(group.features[featureUid], groupIndex);
+  }
+  goog.asserts.assert(goog.object.isEmpty(group.features));
+};
+
+
+/**
+ * @return {ol.layer.Vector} The vector layer used internally.
+ * @export
+ */
+ngeo.FeatureOverlayMgr.prototype.getLayer = function() {
+  return this.layer_;
+};
+
+
+/**
+ * @return {ngeo.FeatureOverlay} Feature overlay.
+ * @export
+ */
+ngeo.FeatureOverlayMgr.prototype.getFeatureOverlay = function() {
+  var groupIndex = this.groups_.length;
+  this.groups_.push({
+    styleFunction: ol.style.defaultStyleFunction,
+    features: {}
+  });
+  return new ngeo.FeatureOverlay(this, groupIndex);
+};
+
+
+/**
+ * @param {ol.Map} map Map.
+ * @export
+ */
+ngeo.FeatureOverlayMgr.prototype.init = function(map) {
+  this.layer_.setMap(map);
+};
+
+
+/**
+ * @param {ol.style.Style|Array.<ol.style.Style>|ol.StyleFunction} style
+ * Style.
+ * @param {number} groupIndex Group index.
+ * @protected
+ */
+ngeo.FeatureOverlayMgr.prototype.setStyle = function(style, groupIndex) {
+  goog.asserts.assert(groupIndex >= 0);
+  goog.asserts.assert(groupIndex < this.groups_.length);
+  this.groups_[groupIndex].styleFunction = style === null ?
+      ol.style.defaultStyleFunction : ol.style.createStyleFunction(style);
+};
+
+
+/**
+ * @param {ol.Feature|ol.render.Feature} feature Feature.
+ * @param {number} resolution Resolution.
+ * @return {Array.<ol.style.Style>|ol.style.Style} Styles.
+ * @private
+ */
+ngeo.FeatureOverlayMgr.prototype.styleFunction_ = function(feature, resolution) {
+  var featureUid = goog.getUid(feature).toString();
+  goog.asserts.assert(featureUid in this.featureUidToGroupIndex_);
+  var groupIndex = this.featureUidToGroupIndex_[featureUid];
+  var group = this.groups_[groupIndex];
+  return group.styleFunction(feature, resolution);
+};
+
+
+/**
+ * @constructor
+ * @param {ngeo.FeatureOverlayMgr} manager The feature overlay manager.
+ * @param {number} index This feature overlay's index.
+ */
+ngeo.FeatureOverlay = function(manager, index) {
+
+  /**
+   * @type {ngeo.FeatureOverlayMgr}
+   * @private
+   */
+  this.manager_ = manager;
+
+  /**
+   * @type {ol.Collection.<ol.Feature>}
+   * @private
+   */
+  this.features_ = null;
+
+  /**
+   * @type {number}
+   * @private
+   */
+  this.index_ = index;
+};
+
+
+/**
+ * Add a feature to the feature overlay.
+ * @param {ol.Feature} feature The feature to add.
+ * @export
+ */
+ngeo.FeatureOverlay.prototype.addFeature = function(feature) {
+  this.manager_.addFeature(feature, this.index_);
+};
+
+
+/**
+ * Remove a feature from the feature overlay.
+ * @param {ol.Feature} feature The feature to remove.
+ * @export
+ */
+ngeo.FeatureOverlay.prototype.removeFeature = function(feature) {
+  this.manager_.removeFeature(feature, this.index_);
+};
+
+
+/**
+ * Remove all the features from the feature overlay.
+ * @export
+ */
+ngeo.FeatureOverlay.prototype.clear = function() {
+  this.manager_.clear(this.index_);
+};
+
+
+/**
+ * Configure this feature overlay with a feature collection. Features added
+ * to the collection are also added to the overlay. Same for removal. If you
+ * configure the feature overlay with a feature collection you will use the
+ * collection to add and remove features instead of using the overlay's
+ * `addFeature`, `removeFeature` and `clear` functions.
+ * @param {ol.Collection.<ol.Feature>} features Feature collection.
+ * @export
+ */
+ngeo.FeatureOverlay.prototype.setFeatures = function(features) {
+  if (this.features_ !== null) {
+    this.features_.clear();
+    ol.events.unlisten(this.features_, ol.CollectionEventType.ADD,
+        this.handleFeatureAdd_, this);
+    ol.events.unlisten(this.features_, ol.CollectionEventType.REMOVE,
+        this.handleFeatureRemove_, this);
+  }
+  if (features !== null) {
+    features.forEach(function(feature) {
+      this.addFeature(feature);
+    }, this);
+    ol.events.listen(features, ol.CollectionEventType.ADD,
+        this.handleFeatureAdd_, this);
+    ol.events.listen(features, ol.CollectionEventType.REMOVE,
+        this.handleFeatureRemove_, this);
+  }
+  this.features_ = features;
+};
+
+
+/**
+ * Set a style for the feature overlay.
+ * @param {ol.style.Style|Array.<ol.style.Style>|ol.StyleFunction} style
+ * Style.
+ * @export
+ */
+ngeo.FeatureOverlay.prototype.setStyle = function(style) {
+  this.manager_.setStyle(style, this.index_);
+};
+
+
+/**
+ * @param {ol.CollectionEvent} evt Feature collection event.
+ * @private
+ */
+ngeo.FeatureOverlay.prototype.handleFeatureAdd_ = function(evt) {
+  var feature = /** @type {ol.Feature} */ (evt.element);
+  this.addFeature(feature);
+};
+
+
+/**
+ * @param {ol.CollectionEvent} evt Feature collection event.
+ * @private
+ */
+ngeo.FeatureOverlay.prototype.handleFeatureRemove_ = function(evt) {
+  var feature = /** @type {ol.Feature} */ (evt.element);
+  this.removeFeature(feature);
+};
+
+
+ngeo.module.service('ngeoFeatureOverlayMgr', ngeo.FeatureOverlayMgr);
+
+goog.provide('ngeo.Message');
+
+
+/**
+ * @enum {string}
+ * @export
+ */
+ngeo.MessageType = {
+  /**
+   * @type {string}
+   * @export
+   */
+  ERROR: 'error',
+  /**
+   * @type {string}
+   * @export
+   */
+  INFORMATION: 'information',
+  /**
+   * @type {string}
+   * @export
+   */
+  SUCCESS: 'success',
+  /**
+   * @type {string}
+   * @export
+   */
+  WARNING: 'warning'
+};
+
+
+/**
+ * Abstract class for services that display messages.
+ *
+ * @constructor
+ */
+ngeo.Message = function() {};
+
+
+/**
+ * Show the message.
+ * @param {ngeox.Message} message Message.
+ * @protected
+ */
+ngeo.Message.prototype.showMessage = goog.abstractMethod;
+
+
+/**
+ * Show disclaimer message string or object or list of disclame message
+ * strings or objects.
+ * @param {string|Array.<string>|ngeox.Message|Array.<ngeox.Message>}
+ *     object A message or list of messages as text or configuration objects.
+ * @export
+ */
+ngeo.Message.prototype.show = function(object) {
+  var msgObjects = this.getMessageObjects(object);
+  msgObjects.forEach(this.showMessage, this);
+};
+
+
+/**
+ * Display the given error message or list of error messages.
+ * @param {string|Array.<string>} message Message or list of messages.
+ * @export
+ */
+ngeo.Message.prototype.error = function(message) {
+  this.show(this.getMessageObjects(message, ngeo.MessageType.ERROR));
+};
+
+
+/**
+ * Display the given info message or list of info messages.
+ * @param {string|Array.<string>} message Message or list of messages.
+ * @export
+ */
+ngeo.Message.prototype.info = function(message) {
+  this.show(this.getMessageObjects(message, ngeo.MessageType.INFORMATION));
+};
+
+
+/**
+ * Display the given success message or list of success messages.
+ * @param {string|Array.<string>} message Message or list of messages.
+ * @export
+ */
+ngeo.Message.prototype.success = function(message) {
+  this.show(this.getMessageObjects(message, ngeo.MessageType.SUCCESS));
+};
+
+
+/**
+ * Display the given warning message or list of warning messages.
+ * @param {string|Array.<string>} message Message or list of messages.
+ * @export
+ */
+ngeo.Message.prototype.warn = function(message) {
+  this.show(this.getMessageObjects(message, ngeo.MessageType.WARNING));
+};
+
+
+/**
+ * Returns an array of message object from any given message string, list of
+ * message strings, message object or list message objects. The type can be
+ * overriden here as well OR defined (if the message(s) is/are string(s),
+ * defaults to 'information').
+ * @param {string|Array.<string>|ngeox.Message|Array.<ngeox.Message>}
+ *     object A message or list of messages as text or configuration objects.
+ * @param {string=} opt_type The type of message to override the messages with.
+ * @return {Array.<ngeox.Message>} List of message objects.
+ * @protected
+ */
+ngeo.Message.prototype.getMessageObjects = function(object, opt_type) {
+  var msgObjects = [];
+  var msgObject = null;
+  var defaultType = ngeo.MessageType.INFORMATION;
+
+  if (typeof object === 'string') {
+    msgObjects.push({
+      msg: object,
+      type: opt_type !== undefined ? opt_type : defaultType
+    });
+  } else if (Array.isArray(object)) {
+    object.forEach(function(msg) {
+      if (typeof object === 'string') {
+        msgObject = {
+          msg: msg,
+          type: opt_type !== undefined ? opt_type : defaultType
+        };
+      } else {
+        msgObject = msg;
+        if (opt_type !== undefined) {
+          msgObject.type = opt_type;
+        }
+      }
+      msgObjects.push(msgObject);
+    }, this);
+  } else {
+    msgObject = object;
+    if (opt_type !== undefined) {
+      msgObject.type = opt_type;
+    }
+    if (msgObject.type === undefined) {
+      msgObject.type = defaultType;
+    }
+    msgObjects.push(msgObject);
+  }
+
+  return msgObjects;
+};
+
+goog.provide('ngeo.Notification');
+
+goog.require('goog.asserts');
+goog.require('ngeo');
+goog.require('ngeo.Message');
+
+
+/**
+ * Provides methods to display any sort of messages, notifications, errors,
+ * etc. Requires Bootstrap library (both CSS and JS) to display the alerts
+ * properly.
+ *
+ * @constructor
+ * @extends {ngeo.Message}
+ * @param {angular.$timeout} $timeout Angular timeout service.
+ * @ngdoc service
+ * @ngname ngeoNotification
+ * @ngInject
+ */
+ngeo.Notification = function($timeout) {
+
+  goog.base(this);
+
+  /**
+   * @type {angular.$timeout}
+   * @private
+   */
+  this.timeout_ = $timeout;
+
+  var container = angular.element('<div class="ngeo-notification"></div>');
+  angular.element(document.body).append(container);
+
+  /**
+   * @type {angular.JQLite}
+   * @private
+   */
+  this.container_ = container;
+
+  /**
+   * @type {Object.<number, ngeo.Notification.CacheItem>}
+   * @private
+   */
+  this.cache_ = {};
+
+};
+goog.inherits(ngeo.Notification, ngeo.Message);
+
+
+/**
+ * Default delay (in milliseconds) a message should be displayed.
+ * @type {number}
+ * @private
+ */
+ngeo.Notification.DEFAULT_DELAY_ = 7000;
+
+
+// MAIN API METHODS
+
+
+/**
+ * Display the given message string or object or list of message strings or
+ * objects.
+ * @param {string|Array.<string>|ngeox.Message|Array.<ngeox.Message>}
+ *     object A message or list of messages as text or configuration objects.
+ * @export
+ */
+ngeo.Notification.prototype.notify = function(object) {
+  this.show(object);
+};
+
+
+/**
+ * Clears all messages that are currently being shown.
+ * @export
+ */
+ngeo.Notification.prototype.clear = function() {
+  for (var uid in this.cache_) {
+    this.clearMessageByCacheItem_(this.cache_[parseInt(uid, 10)]);
+  }
+};
+
+
+/**
+ * Show the message.
+ * @param {ngeox.Message} message Message.
+ * @protected
+ */
+ngeo.Notification.prototype.showMessage = function(message) {
+  var type = message.type;
+  goog.asserts.assertString(type, 'Type should be set.');
+
+  var classNames = ['alert', 'fade'];
+  switch (type) {
+    case ngeo.MessageType.ERROR:
+      classNames.push('alert-danger');
+      break;
+    case ngeo.MessageType.INFORMATION:
+      classNames.push('alert-info');
+      break;
+    case ngeo.MessageType.SUCCESS:
+      classNames.push('alert-success');
+      break;
+    case ngeo.MessageType.WARNING:
+      classNames.push('alert-warning');
+      break;
+    default:
+      break;
+  }
+
+  var el = angular.element('<div class="' + classNames.join(' ') + '"></div>');
+  var container;
+
+  if (message.target) {
+    container = angular.element(message.target);
+  } else {
+    container = this.container_;
+  }
+
+  container.append(el);
+  el.html(message.msg).addClass('in');
+
+  var delay = message.delay !== undefined ? message.delay :
+      ngeo.Notification.DEFAULT_DELAY_;
+
+  var item = /** @type {ngeo.Notification.CacheItem} */ ({
+    el: el
+  });
+
+  // Keep a reference to the promise, in case we want to manually cancel it
+  // before the delay
+  var uid = goog.getUid(el);
+  item.promise = this.timeout_(function() {
+    el.alert('close');
+    delete this.cache_[uid];
+  }.bind(this), delay);
+
+  this.cache_[uid] = item;
+};
+
+
+/**
+ * Clear a message using its cache item.
+ * @param {ngeo.Notification.CacheItem} item Cache item.
+ * @private
+ */
+ngeo.Notification.prototype.clearMessageByCacheItem_ = function(item) {
+  var el = item.el;
+  var promise = item.promise;
+  var uid = goog.getUid(el);
+
+  // Close the message
+  el.alert('close');
+
+  // Cancel timeout in case we want to stop before delay. If called by the
+  // timeout itself, then this has no consequence.
+  this.timeout_.cancel(promise);
+
+  // Delete the cache item
+  delete this.cache_[uid];
+};
+
+
+/**
+ * @typedef {{
+ *     el: angular.JQLite,
+ *     promise: angular.$q.Promise
+ * }}
+ */
+ngeo.Notification.CacheItem;
+
+
+ngeo.module.service('ngeoNotification', ngeo.Notification);
+
+goog.provide('ngeo.DesktopGeolocationController');
+goog.provide('ngeo.desktopGeolocationDirective');
+
+goog.require('ngeo');
+goog.require('ngeo.DecorateGeolocation');
+goog.require('ngeo.FeatureOverlay');
+goog.require('ngeo.FeatureOverlayMgr');
+goog.require('ngeo.Notification');
+goog.require('ol.Feature');
+goog.require('ol.Geolocation');
+goog.require('ol.Map');
+goog.require('ol.geom.Point');
+
+
+/**
+ * @enum {string}
+ * @export
+ */
+ngeo.DesktopGeolocationEventType = {
+  /**
+   * Triggered when an error occures.
+   */
+  ERROR: 'desktop-geolocation-error'
+};
+
+
+/**
+ * Provide a "desktop geolocation" directive.
+ *
+ * Example:
+ *
+ *      <button ngeo-desktop-geolocation=""
+ *        ngeo-desktop-geolocation-map="ctrl.map"
+ *        ngeo-desktop-geolocation-options="ctrl.desktopGeolocationOptions">
+ *      </button>
+ *
+ * See our live example: {@link ../examples/desktopgeolocation.html}
+ *
+ * @htmlAttribute {ol.Map} gmf-geolocation-map The map.
+ * @htmlAttribute {ngeox.DesktopGeolocationDirectiveOptions} gmf-geolocation-options The options.
+ * @return {angular.Directive} The Directive Definition Object.
+ * @ngInject
+ * @ngdoc directive
+ * @ngname ngeoDesktopGeolocation
+ */
+ngeo.desktopGeolocationDirective = function() {
+  return {
+    restrict: 'A',
+    scope: {
+      'getDesktopMapFn': '&ngeoDesktopGeolocationMap',
+      'getDesktopGeolocationOptionsFn': '&ngeoDesktopGeolocationOptions'
+    },
+    controller: 'NgeoDesktopGeolocationController',
+    controllerAs: 'ctrl'
+  };
+};
+
+
+ngeo.module.directive('ngeoDesktopGeolocation',
+    ngeo.desktopGeolocationDirective);
+
+
+/**
+ * @constructor
+ * @param {angular.Scope} $scope The directive's scope.
+ * @param {angular.JQLite} $element Element.
+ * @param {ngeo.DecorateGeolocation} ngeoDecorateGeolocation Decorate
+ *     Geolocation service.
+ * @param {ngeo.FeatureOverlayMgr} ngeoFeatureOverlayMgr The ngeo feature
+ *     overlay manager service.
+ * @param {ngeo.Notification} ngeoNotification Ngeo notification service.
+ * @export
+ * @ngInject
+ * @ngdoc controller
+ * @ngname NgeoDesktopGeolocationController
+ */
+ngeo.DesktopGeolocationController = function($scope, $element,
+    ngeoDecorateGeolocation, ngeoFeatureOverlayMgr, ngeoNotification) {
+
+  $element.on('click', this.toggle.bind(this));
+
+  var map = $scope['getDesktopMapFn']();
+  goog.asserts.assertInstanceof(map, ol.Map);
+
+  /**
+   * @type {!ol.Map}
+   * @private
+   */
+  this.map_ = map;
+
+  var options = $scope['getDesktopGeolocationOptionsFn']() || {};
+  goog.asserts.assertObject(options);
+
+  /**
+   * @type {!angular.Scope}
+   * @private
+   */
+  this.$scope_ = $scope;
+
+  /**
+   * @type {ngeo.Notification}
+   * @private
+   */
+  this.notification_ = ngeoNotification;
+
+  /**
+   * @type {ngeo.FeatureOverlay}
+   * @private
+   */
+  this.featureOverlay_ = ngeoFeatureOverlayMgr.getFeatureOverlay();
+
+  /**
+   * @type {ol.Geolocation}
+   * @private
+   */
+  this.geolocation_ = new ol.Geolocation({
+    projection: map.getView().getProjection()
+  });
+
+  // handle geolocation error.
+  this.geolocation_.on('error', function(error) {
+    this.deactivate_();
+    this.notification_.error(error.message);
+    $scope.$emit(ngeo.DesktopGeolocationEventType.ERROR, error);
+  }, this);
+
+  /**
+   * @type {ol.Feature}
+   * @private
+   */
+  this.positionFeature_ = new ol.Feature();
+
+  if (options.positionFeatureStyle) {
+    this.positionFeature_.setStyle(options.positionFeatureStyle);
+  }
+
+  /**
+   * @type {ol.Feature}
+   * @private
+   */
+  this.accuracyFeature_ = new ol.Feature();
+
+  if (options.accuracyFeatureStyle) {
+    this.accuracyFeature_.setStyle(options.accuracyFeatureStyle);
+  }
+
+  /**
+   * @type {number|undefined}
+   * @private
+   */
+  this.zoom_ = options.zoom;
+
+  /**
+   * @type {boolean}
+   * @private
+   */
+  this.active_ = false;
+
+  ol.events.listen(
+      this.geolocation_,
+      ol.Object.getChangeEventType(ol.GeolocationProperty.ACCURACY_GEOMETRY),
+      function() {
+        this.accuracyFeature_.setGeometry(
+            this.geolocation_.getAccuracyGeometry());
+      },
+      this);
+
+  ol.events.listen(
+      this.geolocation_,
+      ol.Object.getChangeEventType(ol.GeolocationProperty.POSITION),
+      function(e) {
+        this.setPosition_(e);
+      },
+      this);
+
+  ngeoDecorateGeolocation(this.geolocation_);
+};
+
+
+/**
+ * @export
+ */
+ngeo.DesktopGeolocationController.prototype.toggle = function() {
+  if (this.active_) {
+    this.deactivate_();
+  } else {
+    this.activate_();
+  }
+};
+
+
+/**
+ * @private
+ */
+ngeo.DesktopGeolocationController.prototype.activate_ = function() {
+  this.featureOverlay_.addFeature(this.positionFeature_);
+  this.featureOverlay_.addFeature(this.accuracyFeature_);
+  this.geolocation_.setTracking(true);
+  this.active_ = true;
+};
+
+
+/**
+ * @private
+ */
+ngeo.DesktopGeolocationController.prototype.deactivate_ = function() {
+  this.featureOverlay_.clear();
+  this.active_ = false;
+  this.notification_.clear();
+};
+
+
+/**
+ * @param {ol.ObjectEvent} event Event.
+ * @private
+ */
+ngeo.DesktopGeolocationController.prototype.setPosition_ = function(event) {
+  var position = /** @type {ol.Coordinate} */ (this.geolocation_.getPosition());
+  var point = new ol.geom.Point(position);
+
+  this.positionFeature_.setGeometry(point);
+  this.map_.getView().setCenter(position);
+
+  if (this.zoom_ !== undefined) {
+    this.map_.getView().setZoom(this.zoom_);
+  }
+
+  this.geolocation_.setTracking(false);
+};
+
+
+ngeo.module.controller('NgeoDesktopGeolocationController',
+    ngeo.DesktopGeolocationController);
+
+goog.provide('ngeo.DecorateInteraction');
+
+goog.require('goog.asserts');
+goog.require('ngeo');
+
+
+/**
+ * Provides a function that adds an "active" property (using
+ * `Object.defineProperty`) to an interaction, making it possible to use ngModel
+ * to activate/deactivate interactions.
+ *
+ * Example:
+ *
+ *      <input type="checkbox" ngModel="interaction.active" />
+ *
+ * See our live example: {@link ../examples/interactiontoggle.html}
+ *
+ * @typedef {function(ol.interaction.Interaction)}
+ * @ngdoc service
+ * @ngname ngeoDecorateInteraction
+ */
+ngeo.DecorateInteraction;
+
+
+/**
+ * @param {ol.interaction.Interaction} interaction Interaction to decorate.
+ */
+ngeo.decorateInteraction = function(interaction) {
+  goog.asserts.assertInstanceof(interaction, ol.interaction.Interaction);
+
+  Object.defineProperty(interaction, 'active', {
+    get: function() {
+      return interaction.getActive();
+    },
+    set: function(val) {
+      interaction.setActive(val);
+    }
+  });
+};
+
+
+ngeo.module.value('ngeoDecorateInteraction', ngeo.decorateInteraction);
+
 goog.provide('ngeo.FeatureHelper');
 
 goog.require('ngeo');
@@ -105983,6 +107467,19 @@ ngeo.FeatureHelper.prototype.getHaloStyle_ = function(feature) {
 
 // === PROPERTY GETTERS ===
 
+/**
+ * Delete the unwanted ol3 properties from the current feature then return the
+ * properties.
+ * @param {ol.Feature} feature Feature.
+ * @return {!Object.<string, *>} Filtered properties of the current feature.
+ * @export
+ */
+ngeo.FeatureHelper.prototype.getFilteredFeatureValues = function(feature) {
+  var properties = feature.getProperties();
+  delete properties['boundedBy'];
+  delete properties[feature.getGeometryName()];
+  return properties;
+};
 
 /**
  * @param {ol.Feature} feature Feature.
@@ -106535,85 +108032,6 @@ ngeo.drawtextDirective = function() {
 
 ngeo.module.directive('ngeoDrawtext', ngeo.drawtextDirective);
 
-goog.provide('ngeo.interaction.MeasureArea');
-
-goog.require('ngeo.interaction.Measure');
-goog.require('ol.geom.Polygon');
-goog.require('ol.interaction.Draw');
-
-
-/**
- * @classdesc
- * Interaction dedicated to measure length.
- *
- * See our live example: {@link ../examples/measure.html}
- *
- * @constructor
- * @extends {ngeo.interaction.Measure}
- * @param {ngeox.unitPrefix} format The format function
- * @param {ngeox.interaction.MeasureOptions=} opt_options Options
- * @export
- */
-ngeo.interaction.MeasureArea = function(format, opt_options) {
-
-  var options = opt_options !== undefined ? opt_options : {};
-
-  goog.base(this, options);
-
-
-  /**
-   * Message to show after the first point is clicked.
-   * @type {Element}
-   */
-  this.continueMsg = options.continueMsg !== undefined ? options.continueMsg :
-      goog.dom.createDom(goog.dom.TagName.SPAN, {},
-          'Click to continue drawing the polygon.',
-          goog.dom.createDom(goog.dom.TagName.BR),
-          'Double-click or click starting point to finish.');
-
-  /**
-   * The format function
-   * @type {ngeox.unitPrefix}
-   */
-  this.format = format;
-
-};
-goog.inherits(ngeo.interaction.MeasureArea, ngeo.interaction.Measure);
-
-
-/**
- * @inheritDoc
- */
-ngeo.interaction.MeasureArea.prototype.createDrawInteraction = function(style,
-    source) {
-
-  return new ol.interaction.Draw(
-      /** @type {olx.interaction.DrawOptions} */ ({
-        type: 'Polygon',
-        source: source,
-        style: style
-      }));
-
-};
-
-
-/**
- * @inheritDoc
- */
-ngeo.interaction.MeasureArea.prototype.handleMeasure = function(callback) {
-  var geom = /** @type {ol.geom.Polygon} */
-      (this.sketchFeature.getGeometry());
-  var proj = this.getMap().getView().getProjection();
-  var dec = this.decimals;
-  var output = ngeo.interaction.Measure.getFormattedArea(geom, proj, dec, this.format);
-  var verticesCount = geom.getCoordinates()[0].length;
-  var coord = null;
-  if (verticesCount > 2) {
-    coord = geom.getInteriorPoint().getCoordinates();
-  }
-  callback(output, coord);
-};
-
 goog.provide('ngeo.measureareaDirective');
 
 goog.require('ngeo');
@@ -107162,81 +108580,6 @@ ngeo.measureazimutDirective = function($compile, gettext, $filter) {
 
 
 ngeo.module.directive('ngeoMeasureazimut', ngeo.measureazimutDirective);
-
-goog.provide('ngeo.interaction.MeasureLength');
-
-goog.require('ngeo.interaction.Measure');
-goog.require('ol.geom.LineString');
-goog.require('ol.interaction.Draw');
-
-
-/**
- * @classdesc
- * Interaction dedicated to measure length.
- *
- * See our live example: {@link ../examples/measure.html}
- *
- * @constructor
- * @extends {ngeo.interaction.Measure}
- * @param {ngeox.unitPrefix} format The format function
- * @param {ngeox.interaction.MeasureOptions=} opt_options Options
- * @export
- */
-ngeo.interaction.MeasureLength = function(format, opt_options) {
-
-  var options = opt_options !== undefined ? opt_options : {};
-
-  goog.base(this, options);
-
-
-  /**
-   * Message to show after the first point is clicked.
-   * @type {Element}
-   */
-  this.continueMsg = options.continueMsg !== undefined ? options.continueMsg :
-      goog.dom.createDom(goog.dom.TagName.SPAN, {},
-          'Click to continue drawing the line.',
-          goog.dom.createDom(goog.dom.TagName.BR),
-          'Double-click or click last point to finish.');
-
-  /**
-   * The format function
-   * @type {ngeox.unitPrefix}
-   */
-  this.format = format;
-
-};
-goog.inherits(ngeo.interaction.MeasureLength, ngeo.interaction.Measure);
-
-
-/**
- * @inheritDoc
- */
-ngeo.interaction.MeasureLength.prototype.createDrawInteraction = function(style,
-    source) {
-
-  return new ol.interaction.Draw(
-      /** @type {olx.interaction.DrawOptions} */ ({
-        type: 'LineString',
-        source: source,
-        style: style
-      }));
-
-};
-
-
-/**
- * @inheritDoc
- */
-ngeo.interaction.MeasureLength.prototype.handleMeasure = function(callback) {
-  var geom = /** @type {ol.geom.LineString} */
-      (this.sketchFeature.getGeometry());
-  var proj = this.getMap().getView().getProjection();
-  var dec = this.decimals;
-  var output = ngeo.interaction.Measure.getFormattedLength(geom, proj, dec, this.format);
-  var coord = geom.getLastCoordinate();
-  callback(output, coord);
-};
 
 goog.provide('ngeo.measurelengthDirective');
 
@@ -108408,720 +109751,6 @@ ngeo.mapDirective = function() {
 
 ngeo.module.directive('ngeoMap', ngeo.mapDirective);
 
-goog.provide('ngeo.LayerHelper');
-
-goog.require('ngeo');
-goog.require('ol.Collection');
-goog.require('ol.array');
-goog.require('ol.format.WMTSCapabilities');
-goog.require('ol.layer.Group');
-goog.require('ol.layer.Image');
-goog.require('ol.layer.Tile');
-goog.require('ol.source.ImageWMS');
-goog.require('ol.source.WMTS');
-
-
-/**
- * Provides help functions that helps you to create and manage layers.
- * @param {angular.$q} $q Angular promises/deferred service.
- * @param {angular.$http} $http Angular http service.
- * @constructor
- * @ngdoc service
- * @ngname ngeoLayerHelper
- * @ngInject
- */
-ngeo.LayerHelper = function($q, $http) {
-
-  /**
-   * @type {angular.$q}
-   * @private
-   */
-  this.$q_ = $q;
-
-  /**
-   * @type {angular.$http}
-   * @private
-   */
-  this.$http_ = $http;
-};
-
-
-/**
- * @const
- */
-ngeo.LayerHelper.GROUP_KEY = 'groupName';
-
-
-/**
- * Create and return a basic WMS layer with only a source URL and a dot
- * separated layers names (see {@link ol.source.ImageWMS}).
- * @param {string} sourceURL The source URL.
- * @param {string} sourceLayersName A dot separated names string.
- * @param {string=} opt_serverType Type of the server ("mapserver",
- *     "geoserver", "qgisserver", …).
- * @param {string=} opt_time time parameter for layer queryable by time/periode
- * @return {ol.layer.Image} WMS Layer.
- * @export
- */
-ngeo.LayerHelper.prototype.createBasicWMSLayer = function(sourceURL,
-    sourceLayersName, opt_serverType, opt_time) {
-  var params = {'LAYERS': sourceLayersName};
-  var olServerType;
-  if (opt_time) {
-    params['TIME'] = opt_time;
-  }
-  if (opt_serverType) {
-    params['SERVERTYPE'] = opt_serverType;
-    // OpenLayers expects 'qgis' insteads of 'qgisserver'
-    olServerType = opt_serverType.replace('qgisserver', 'qgis');
-  }
-  var layer = new ol.layer.Image({
-    source: new ol.source.ImageWMS({
-      url: sourceURL,
-      params: params,
-      serverType: olServerType
-    })
-  });
-  return layer;
-};
-
-
-/**
- * Create and return a promise that provides a WMTS layer with source on
- * success, no layer else.
- * The WMTS layer source will be configured by the capabilities that are
- * loaded from the given capabilitiesUrl.
- * The style object described in the capabilities for this layer will be added
- * as key 'capabilitiesStyles' as param of the new layer.
- * @param {string} capabilitiesURL The getCapabilities url.
- * @param {string} layerName The name of the layer.
- * @return {angular.$q.Promise} A Promise with a layer (with source) on success,
- *     no layer else.
- * @export
- */
-ngeo.LayerHelper.prototype.createWMTSLayerFromCapabilitites = function(capabilitiesURL, layerName) {
-  var parser = new ol.format.WMTSCapabilities();
-  var layer = new ol.layer.Tile();
-  var $q = this.$q_;
-
-  return this.$http_.get(capabilitiesURL).then(function(response) {
-    var result;
-    if (response.data) {
-      result = parser.read(response.data);
-    }
-    if (result !== undefined) {
-      var options = ol.source.WMTS.optionsFromCapabilities(result, {
-        layer: layerName
-      });
-      layer.setSource(new ol.source.WMTS(options));
-
-      // Add styles from capabilities as param of the layer
-      var layers = result['Contents']['Layer'];
-      var l = ol.array.find(layers, function(elt, index, array) {
-        return elt['Identifier'] == layerName;
-      });
-      layer.set('capabilitiesStyles', l['Style']);
-
-      return $q.resolve(layer);
-    }
-    return $q.reject('Failed to get WMTS capabilities from ' +
-        capabilitiesURL);
-  });
-};
-
-
-/**
- * Create and return an ol.layer.Group. You can pass a collection of layers to
- * directly add them in the returned group.
- * @param {ol.Collection.<ol.layer.Base>=} opt_layers The layer to add to the
- * returned Group.
- * @return {ol.layer.Group} Layer group.
- * @export
- */
-ngeo.LayerHelper.prototype.createBasicGroup = function(opt_layers) {
-  var group = new ol.layer.Group();
-  if (goog.isDefAndNotNull(opt_layers)) {
-    group.setLayers(opt_layers);
-  }
-  return group;
-};
-
-
-/**
- * Retrieve (or create if it doesn't exist) and return a group of layer from
- * the base array of layers of a map. The given name is used as unique
- * identifier. If the group is created, it will be automatically added to
- * the map.
- * @param {ol.Map} map A map.
- * @param {string} groupName The name of the group.
- * @return {ol.layer.Group} The group corresponding to the given name.
- * @export
- */
-ngeo.LayerHelper.prototype.getGroupFromMap = function(map, groupName) {
-  var groups = map.getLayerGroup().getLayers();
-  var group;
-  groups.getArray().some(function(exitingGroup) {
-    if (exitingGroup.get(ngeo.LayerHelper.GROUP_KEY) === groupName) {
-      group = /** @type {ol.layer.Group} */ (exitingGroup);
-      return true;
-    } else {
-      return false;
-    }
-  });
-  if (!group) {
-    group = this.createBasicGroup();
-    group.set(ngeo.LayerHelper.GROUP_KEY, groupName);
-    map.addLayer(group);
-  }
-  return group;
-};
-
-
-/**
- * Get an array of all layers in a group. The group can contain multiple levels
- * of others groups.
- * @param {ol.layer.Base} layer The base layer, mostly a group of layers.
- * @return {Array.<ol.layer.Layer>} Layers.
- * @export
- */
-ngeo.LayerHelper.prototype.getFlatLayers = function(layer) {
-  return this.getFlatLayers_(layer, []);
-};
-
-
-/**
- * Get an array of all layers in a group. The group can contain multiple levels
- * of others groups.
- * @param {ol.layer.Base} layer The base layer, mostly a group of layers.
- * @param {Array.<ol.layer.Base>} array An array to add layers.
- * @return {Array.<ol.layer.Layer>} Layers.
- * @private
- */
-ngeo.LayerHelper.prototype.getFlatLayers_ = function(layer, array) {
-  if (layer instanceof ol.layer.Group) {
-    var sublayers = layer.getLayers();
-    sublayers.forEach(function(l) {
-      this.getFlatLayers_(l, array);
-    }, this);
-  } else {
-    if (array.indexOf(layer) < 0) {
-      array.push(layer);
-    }
-  }
-  return array;
-};
-
-
-/**
- * Get a layer that has a `layerName` property equal to a given layer name from
- * an array of layers. If one of the layers in the array is a group, then the
- * layers contained in that group are searched as well.
- * @param {string} layerName The name of the layer we're looking for.
- * @param {Array.<ol.layer.Base>} layers Layers.
- * @return {?ol.layer.Base} Layer.
- * @export
- */
-ngeo.LayerHelper.prototype.getLayerByName = function(layerName, layers) {
-  var found = null;
-  layers.some(function(layer) {
-    if (layer instanceof ol.layer.Group) {
-      var sublayers = layer.getLayers().getArray();
-      found = this.getLayerByName(layerName, sublayers);
-    } else if (layer.get('layerName') === layerName) {
-      found = layer;
-    }
-    return !!found;
-  }, this);
-
-  return found;
-};
-
-
-/**
- * Get the WMTS legend URL for the given layer.
- * @param {ol.layer.Tile} layer Tile layer as returned by the
- * ngeo layerHelper service.
- * @return {?string} The legend URL or null.
- * @export
- */
-ngeo.LayerHelper.prototype.getWMTSLegendURL = function(layer) {
-  // FIXME case of multiple styles ?  case of multiple legendUrl ?
-  var url;
-  var styles = layer.get('capabilitiesStyles');
-  if (styles !== undefined) {
-    var legendURL = styles[0]['legendURL'];
-    if (legendURL !== undefined) {
-      url = legendURL[0]['href'];
-    }
-  }
-  return url || null;
-};
-
-
-/**
- * Get the WMS legend URL for the given node.
- * @param {string} url The base url of the wms service.
- * @param {string} layerName The name of a wms layer.
- * @param {number} scale A scale.
- * @param {string=} opt_legendRule rule parameters to add to the returned URL.
- * @return {?string} The legend URL or null.
- * @export
- */
-ngeo.LayerHelper.prototype.getWMSLegendURL = function(url,
-    layerName, scale, opt_legendRule) {
-  if (!url) {
-    return null;
-  }
-  url = goog.uri.utils.setParam(url, 'FORMAT', 'image/png');
-  url = goog.uri.utils.setParam(url, 'TRANSPARENT', true);
-  url = goog.uri.utils.setParam(url, 'SERVICE', 'wms');
-  url = goog.uri.utils.setParam(url, 'VERSION', '1.1.1');
-  url = goog.uri.utils.setParam(url, 'REQUEST', 'GetLegendGraphic');
-  url = goog.uri.utils.setParam(url, 'LAYER', layerName);
-  url = goog.uri.utils.setParam(url, 'SCALE', scale);
-  if (opt_legendRule !== undefined) {
-    url = goog.uri.utils.setParam(url, 'RULE', opt_legendRule);
-  }
-  return url;
-};
-
-
-ngeo.module.service('ngeoLayerHelper', ngeo.LayerHelper);
-
-goog.provide('ngeo.Query');
-
-goog.require('ngeo');
-goog.require('ngeo.LayerHelper');
-goog.require('ol.format.WMSGetFeatureInfo');
-goog.require('ol.source.ImageWMS');
-goog.require('ol.source.TileWMS');
-goog.require('goog.uri.utils');
-
-
-/**
- * @typedef {{
- *     resultSource: (ngeox.QueryResultSource),
- *     source: (ngeox.QuerySource)
- * }}
- */
-ngeo.QueryCacheItem;
-
-
-/**
- * @enum {string}
- */
-ngeo.QueryInfoFormatType = {
-  GML: 'application/vnd.ogc.gml'
-};
-
-
-/**
- * The `ngeoQueryResult` is the value service where the features of the query
- * result are added.
- */
-ngeo.module.value('ngeoQueryResult', /** @type {ngeox.QueryResult} */ ({
-  sources: [],
-  total: 0
-}));
-
-
-/**
- * The Query service provides a way to send WMS GetFeatureInfo requests from
- * visible layer objects within a map. Those do not necessarily need to have
- * a WMS source. The Query service requires source configuration in order
- * for layers to actually be considered queryable.
- *
- * To know more about the specification of a source configuration, see
- * `ngeox.QuerySource`
- *
- * @constructor
- * @param {angular.$http} $http Angular $http service.
- * @param {ngeox.QueryResult} ngeoQueryResult The ngeo query result service.
- * @param {ngeox.QueryOptions|undefined} ngeoQueryOptions The options to
- *     configure the ngeo query service with.
- * @param {ngeo.LayerHelper} ngeoLayerHelper Ngeo Layer Helper.
- * @ngdoc service
- * @ngname ngeoQuery
- * @ngInject
- */
-ngeo.Query = function($http, ngeoQueryResult, ngeoQueryOptions,
-    ngeoLayerHelper) {
-
-  var options = ngeoQueryOptions !== undefined ? ngeoQueryOptions : {};
-
-  /**
-   * @type {number}
-   * @private
-   */
-  this.limit_ = options.limit !== undefined ? options.limit : 50;
-
-  /**
-   * @type {string}
-   * @private
-   */
-  this.sourceIdsProperty_ = options.sourceIdsProperty !== undefined ?
-      options.sourceIdsProperty : ngeo.Query.DEFAULT_SOURCE_IDS_PROPERTY_;
-
-  /**
-   * @type {ngeo.LayerHelper}
-   * @private
-   */
-  this.ngeoLayerHelper_ = ngeoLayerHelper;
-
-  /**
-   * @type {angular.$http}
-   * @private
-   */
-  this.$http_ = $http;
-
-  /**
-   * @type {ngeox.QueryResult}
-   * @private
-   */
-  this.result_ = ngeoQueryResult;
-
-  /**
-   * @type {Array.<ngeox.QuerySource>}
-   * @private
-   */
-  this.sources_ = [];
-
-  /**
-   * @type {Object.<number|string, ngeo.QueryCacheItem>}
-   * @private
-   */
-  this.cache_ = {};
-};
-
-
-/**
- * @const
- * @private
- */
-ngeo.Query.DEFAULT_SOURCE_IDS_PROPERTY_ = 'querySourceIds';
-
-
-/**
- * Adds a new source to the query service.
- *
- * A source must at least have an `id` configured.  That id is then used to
- * associate the corresponding layer object within a map.
- *
- * A source will require a `ol.source.ImageWMS` or `ol.source.TileWMS` object.
- * You can either set it directly in the config, or use the one from a given
- * layer or let the query service create one from you using other source config
- * such as `url` and `params`.
- *
- * A source can be set with either a `format` and/or `infoFormat`, which will
- * determine how the returned features of a query will be read.
- *
- * This method will also create a result entry in the `ngeoQueryResult`
- * value service.
- *
- * @param {ngeox.QuerySource} source The source to add to the query service.
- * @export
- */
-ngeo.Query.prototype.addSource = function(source) {
-  var sourceId = source.id;
-
-  goog.asserts.assert(sourceId, 'source.id should be thruthy');
-  goog.asserts.assert(!this.cache_[sourceId],
-      'no other source with the same id should be present');
-
-  // == wmsSource ==
-  // if the source doesn't have a wmsSource property set, it must at least have
-  // a layer that has one or have the required configuration options in order
-  // to create one.
-  if (!source.wmsSource) {
-    if (source.layer &&
-        (source.layer instanceof ol.layer.Image ||
-         source.layer instanceof ol.layer.Tile)) {
-      var wmsSource = source.layer.getSource();
-      if (wmsSource &&
-          (wmsSource instanceof ol.source.ImageWMS ||
-           wmsSource instanceof ol.source.TileWMS)) {
-        source.wmsSource =
-            /** @type {ol.source.ImageWMS|ol.source.TileWMS} */ (wmsSource);
-      }
-    } else {
-      var url = source.url;
-      var params = source.params;
-      goog.asserts.assert(url,
-          'url must be set when no layer or wmsSource is set in the source');
-      goog.asserts.assert(params,
-          'parmas must be set when no layer or wmsSource is set in the source');
-      source.wmsSource = new ol.source.ImageWMS({
-        url: url,
-        params: params
-      });
-    }
-  }
-  goog.asserts.assert(source.wmsSource, 'wmsSource should be thruthy');
-
-  // == format ==
-  if (!source.format) {
-    // GML is the default infoFormat if the source doesn't have one defined
-    if (!source.infoFormat) {
-      source.infoFormat = ngeo.QueryInfoFormatType.GML;
-    }
-
-    var layers = source.wmsSource.getParams()['LAYERS'].split(',');
-
-    if (source.infoFormat === ngeo.QueryInfoFormatType.GML) {
-      source.format = new ol.format.WMSGetFeatureInfo({
-        layers: layers
-      });
-    }
-  } else if (!source.infoFormat) {
-    // == infoFormat ==
-    var format = source.format;
-    if (format instanceof ol.format.WMSGetFeatureInfo) {
-      source.infoFormat = ngeo.QueryInfoFormatType.GML;
-    }
-  }
-  goog.asserts.assert(source.format, 'format should be thruthy');
-
-
-  this.sources_.push(source);
-
-  var sourceLabel = source.label !== undefined ? source.label : sourceId;
-
-  var sourceIdentifierAttributeField =
-      source.identifierAttributeField !== undefined ?
-      source.identifierAttributeField : sourceId;
-
-  var resultSource = /** @type {ngeox.QueryResultSource} */ ({
-    'features': [],
-    'id': sourceId,
-    'identifierAttributeField': sourceIdentifierAttributeField,
-    'label': sourceLabel,
-    'pending': false,
-    'queried': false
-  });
-
-  this.result_.sources.push(resultSource);
-
-  var cacheItem = {
-    'source': source,
-    'resultSource': resultSource
-  };
-  this.cache_[sourceId] = cacheItem;
-};
-
-
-/**
- * Add multiple sources at once in the order they are given.
- * @param {Array.<ngeox.QuerySource>} sources The sources to add to the query
- *     service.
- * @export
- */
-ngeo.Query.prototype.addSources = function(sources) {
-  sources.forEach(this.addSource, this);
-};
-
-
-/**
- * Clear the results.
- * @export
- */
-ngeo.Query.prototype.clear = function() {
-  this.clearResult_();
-};
-
-
-/**
- * Issue a new request using a given map and a given object, which can be
- * a coordinate or extent.
- *
- * NOTE: only coordinates are currently supported.
- *
- * @param {ol.Map} map The ol3 map object to fetch the layers from.
- * @param {ol.Coordinate|ol.Extent} object The coordinate or extent to issue
- *     the request with.
- * @export
- */
-ngeo.Query.prototype.issue = function(map, object) {
-
-  this.clearResult_();
-
-  if (object.length === 2) {
-    this.issueWMSGetFeatureInfoRequests_(map, object);
-  }
-};
-
-
-/**
- * Issue a new WMS GetFeatureInfo request using a given map and a coordinate.
- * For each visible layer of the map, if that layer has a source configured
- * within this query service, then a query will be sent and the results
- * will be stocked in the `ngeoQueryResult`.
- *
- * If multiple sources share the same url and use GML as info format, then
- * only one request will be sent for all these sources.
- *
- * NOTE: Only GML info format are currently supported.
- *
- * @param {ol.Map} map The ol3 map object to fetch the layers from.
- * @param {ol.Coordinate} coordinate The coordinate to issue the request with.
- * @private
- */
-ngeo.Query.prototype.issueWMSGetFeatureInfoRequests_ = function(
-    map, coordinate) {
-
-  var view = map.getView();
-  var projCode = view.getProjection().getCode();
-
-  var id;
-  var ids;
-  var infoFormat;
-  var url;
-  var item;
-  var wmsGetFeatureInfoUrl;
-
-  var itemsByUrl =
-      /** @type {Object.<string, Array.<ngeo.QueryCacheItem>>} */ ({});
-
-  var resolution = /** @type {number} */ (view.getResolution());
-
-  var layers = this.ngeoLayerHelper_.getFlatLayers(map.getLayerGroup());
-
-  layers.forEach(function(layer) {
-
-    // Skip layers that are not visible
-    if (!layer.getVisible()) {
-      return;
-    }
-
-    // Skip layers that don't have one or more sources configured
-    ids = this.getLayerSourceIds_(layer);
-    if (ids.length === 0) {
-      return;
-    }
-
-    for (var i = 0, len = ids.length; i < len; i++) {
-      id = ids[i];
-      item = this.cache_[id];
-      if (!item) {
-        continue;
-      }
-
-      // If `validateLayerParams` is set, then the source config layer in the
-      // LAYERS params must be in the current LAYERS params of the layer
-      // wms source object.
-      if (item.source.validateLayerParams) {
-        goog.asserts.assert(
-            layer instanceof ol.layer.Image ||
-            layer instanceof ol.layer.Tile,
-            'The layer should be an Image or Tile when using the ' +
-            'validateLayerParams option.'
-        );
-        var layerSource = layer.getSource();
-        goog.asserts.assert(
-            layerSource instanceof ol.source.ImageWMS ||
-            layerSource instanceof ol.source.TileWMS,
-            'The layer source should be a WMS one when using the ' +
-            'validateLayerParams option.'
-        );
-        var layerLayers = layerSource.getParams()['LAYERS'].split(',');
-        var cfgLayer = item.source.wmsSource.getParams()['LAYERS'];
-        goog.asserts.assert(cfgLayer.indexOf(',') === -1,
-            'The LAYERS param contains more than one item');
-        if (layerLayers.indexOf(cfgLayer) === -1) {
-          continue;
-        }
-      }
-
-      item['resultSource'].pending = true;
-      item['resultSource'].queried = true;
-      infoFormat = item.source.infoFormat;
-
-      // Sources that use GML as info format are combined together if they
-      // share the same server url
-      if (infoFormat === ngeo.QueryInfoFormatType.GML) {
-        url = item.source.wmsSource.getUrl();
-        goog.asserts.assertString(url);
-        if (!itemsByUrl[url]) {
-          itemsByUrl[url] = [];
-        }
-        itemsByUrl[url].push(item);
-      } else {
-        // TODO - support other kinds of infoFormats
-        item['resultSource'].pending = false;
-      }
-    }
-  }, this);
-
-  goog.object.forEach(itemsByUrl, function(items) {
-
-    infoFormat = items[0].source.infoFormat;
-    var layers = items[0].source.wmsSource.getParams()['LAYERS'].split(',');
-
-    wmsGetFeatureInfoUrl = items[0].source.wmsSource.getGetFeatureInfoUrl(
-        coordinate, resolution, projCode, {
-          'INFO_FORMAT': infoFormat,
-          'FEATURE_COUNT': this.limit_
-        });
-
-    goog.asserts.assert(
-        wmsGetFeatureInfoUrl, 'WMS GetFeatureInfo url should be thruty');
-
-    for (var i = 1, len = items.length; i < len; i++) {
-      layers = layers.concat(
-          items[i].source.wmsSource.getParams()['LAYERS'].split(','));
-    }
-
-    var lyrStr = layers.join(',');
-
-    wmsGetFeatureInfoUrl =
-        goog.uri.utils.setParam(wmsGetFeatureInfoUrl, 'LAYERS', lyrStr);
-    wmsGetFeatureInfoUrl =
-        goog.uri.utils.setParam(wmsGetFeatureInfoUrl, 'QUERY_LAYERS', lyrStr);
-
-    this.$http_.get(wmsGetFeatureInfoUrl).then(function(items, response) {
-      items.forEach(function(item) {
-        var format = item.source.format;
-        var features = format.readFeatures(response.data);
-        item['resultSource'].pending = false;
-        item['resultSource'].features = features;
-        this.result_.total += features.length;
-      }, this);
-    }.bind(this, items));
-  }, this);
-};
-
-
-/**
- * Clear every features for all result sources and reset the total counter
- * as well.
- * @private
- */
-ngeo.Query.prototype.clearResult_ = function() {
-  this.result_.total = 0;
-  this.result_.sources.forEach(function(source) {
-    source.features.length = 0;
-    source.pending = false;
-    source.queried = false;
-  }, this);
-};
-
-
-/**
- * Returns the source ids from an ol3 layer object.
- * @param {ol.layer.Base} layer The ol3 layer object.
- * @return {Array.<number|string>} ids The ids of the sources bound to that
- *     layer.
- * @private
- */
-ngeo.Query.prototype.getLayerSourceIds_ = function(layer) {
-  var ids = layer.get(this.sourceIdsProperty_) || [];
-  goog.asserts.assertArray(ids);
-  var clone = ids.slice();
-  return clone;
-};
-
-
-ngeo.module.service('ngeoQuery', ngeo.Query);
-
 goog.provide('ngeo.mapQueryDirective');
 
 goog.require('ngeo');
@@ -109993,8 +110622,8 @@ ngeo.recenterDirective = function() {
       }
 
       // if the children is a link or button
-      $element.on('click', function(event) {
-        recenter(angular.element(event.target));
+      $element.on('click', '*', function(event) {
+        recenter(angular.element($(this)));
       });
 
       // if the children is an option inside a select
@@ -128610,7 +129239,7 @@ ngeo.StateManager = function(ngeoLocation) {
 
   /**
    * Object representing the application's initial state.
-   * @type {Object.<string ,string>}
+   * @type {!Object.<string ,string>}
    */
   this.initialState = {};
 
@@ -128624,12 +129253,21 @@ ngeo.StateManager = function(ngeoLocation) {
    */
   this.localStorage = new goog.storage.mechanism.HTML5LocalStorage();
 
+
+  /**
+   * @type {Array.<string>}
+   */
+  this.excludedKeyListForURL = ['theme'];
+
   // Populate initialState with the application's initial state. The initial
   // state is read from the location URL, or from the local storage if there
   // is no state in the location URL.
 
   var paramKeys = ngeoLocation.getParamKeys();
-  var i, key;
+  var i, key, theme;
+  var themeRegex = new RegExp(/\/theme\/([^\?\/]*)/);
+  var urlPath = ngeoLocation.getPath();
+  var locationInitState = {};
 
   if (paramKeys.length === 0 ||
       (paramKeys.length === 1 && paramKeys[0] == 'debug')) {
@@ -128638,25 +129276,70 @@ ngeo.StateManager = function(ngeoLocation) {
       for (i = 0; i < count; ++i) {
         key = this.localStorage.key(i);
         goog.asserts.assert(key !== null);
-        this.initialState[key] = this.localStorage.get(key);
+        this.initialState[key] = this.getItemFromLocalStorage_(key);
+
+        //Do not copy excluded parameters in the URL
+        if (this.excludedKeyListForURL.indexOf(key) < 0) {
+          locationInitState[key] = this.initialState[key];
+        }
       }
+      this.ngeoLocation.updateParams(locationInitState);
     }
   } else {
     var keys = ngeoLocation.getParamKeys();
     for (i = 0; i < keys.length; ++i) {
       key = keys[i];
-      this.initialState[key] = ngeoLocation.getParam(key);
+      this.initialState[key] = this.getItemFromLocation_(key);
+    }
+    //Retrieve selected theme in url path
+    theme = urlPath.match(themeRegex);
+    if (theme) {
+      this.initialState['theme'] = theme[1];
     }
   }
+};
 
-  this.ngeoLocation.updateParams({});
+
+/**
+ * Get the item for the given key  from localStorage and try to parse to the appropriate type
+ * If it cannot be parsed, the raw value (string) is returned
+ *
+ * @param  {string} key the localStorage key for the item
+ * @return {*} Param value.
+ * @private
+ */
+ngeo.StateManager.prototype.getItemFromLocalStorage_ = function(key) {
+  var value = this.localStorage.get(key);
+  try {
+    return angular.fromJson(value);
+  } catch (e) {
+    return value;
+  }
+};
+
+
+/**
+ * Get the item for the given key  from Location and try to parse to the appropriate type
+ * If it cannot be parsed, the raw value (string) is returned
+ *
+ * @param  {string} key the localStorage key for the item
+ * @return {*} Param value.
+ * @private
+ */
+ngeo.StateManager.prototype.getItemFromLocation_ = function(key) {
+  var value = this.ngeoLocation.getParam(key);
+  try {
+    return angular.fromJson(value);
+  } catch (e) {
+    return value;
+  }
 };
 
 
 /**
  * Get the state value for `key`.
  * @param {string} key State key.
- * @return {string|undefined} State value.
+ * @return {*} State value.
  */
 ngeo.StateManager.prototype.getInitialValue = function(key) {
   return this.initialState[key];
@@ -128665,14 +129348,23 @@ ngeo.StateManager.prototype.getInitialValue = function(key) {
 
 /**
  * Update the application state with the values in `object`.
- * @param {Object.<string, string>} object Object.
+ * @param {!Object.<string, string>} object Object.
  */
 ngeo.StateManager.prototype.updateState = function(object) {
-  this.ngeoLocation.updateParams(object);
+  var locationObject = {};
+  Object.keys(object).forEach(copyWithoutExcludedKeys, this);
+  this.ngeoLocation.updateParams(locationObject);
   if (this.localStorage.isAvailable()) {
     var key;
     for (key in object) {
-      this.localStorage.set(key, object[key]);
+      this.localStorage.set(key, angular.toJson(object[key]));
+    }
+  }
+
+  function copyWithoutExcludedKeys(key) {
+    //Do not copy excluded parameters in the URL
+    if (this.excludedKeyListForURL.indexOf(key) < 0) {
+      locationObject[key] = object[key];
     }
   }
 };
@@ -129202,7 +129894,8 @@ ngeo.WfsPermalink.prototype.issue = function(queryData, map) {
  * @private
  */
 ngeo.WfsPermalink.prototype.issueRequest_ = function(wfsType, filter, map, showFeatures) {
-  var featureRequestXml = new ol.format.WFS().writeGetFeature({
+  var wfsFormat = new ol.format.WFS();
+  var featureRequestXml = wfsFormat.writeGetFeature({
     srsName: map.getView().getProjection().getCode(),
     featureNS: (wfsType.featureNS !== undefined) ?
         wfsType.featureNS : this.defaultFeatureNS_,
@@ -129216,7 +129909,7 @@ ngeo.WfsPermalink.prototype.issueRequest_ = function(wfsType, filter, map, showF
 
   var featureRequest = new XMLSerializer().serializeToString(featureRequestXml);
   this.$http_.post(this.url_, featureRequest).then(function(response) {
-    var features = new ol.format.WFS().readFeatures(response.data);
+    var features = wfsFormat.readFeatures(response.data);
     if (features.length == 0) {
       return;
     }
@@ -129430,11 +130123,9 @@ goog.require('ol.Collection');
 goog.require('ol.CollectionEvent');
 goog.require('ol.CollectionEventType');
 goog.require('ol.DeviceOrientation');
-goog.require('ol.DeviceOrientationProperty');
 goog.require('ol.DragBoxEvent');
 goog.require('ol.Feature');
 goog.require('ol.Geolocation');
-goog.require('ol.GeolocationProperty');
 goog.require('ol.Graticule');
 goog.require('ol.Image');
 goog.require('ol.ImageTile');
@@ -129453,7 +130144,6 @@ goog.require('ol.ObjectEventType');
 goog.require('ol.Observable');
 goog.require('ol.Overlay');
 goog.require('ol.OverlayPositioning');
-goog.require('ol.OverlayProperty');
 goog.require('ol.RasterOperationType');
 goog.require('ol.Sphere');
 goog.require('ol.Tile');
@@ -129473,8 +130163,6 @@ goog.require('ol.control.MousePosition');
 goog.require('ol.control.OverviewMap');
 goog.require('ol.control.Rotate');
 goog.require('ol.control.ScaleLine');
-goog.require('ol.control.ScaleLineProperty');
-goog.require('ol.control.ScaleLineUnits');
 goog.require('ol.control.Zoom');
 goog.require('ol.control.ZoomSlider');
 goog.require('ol.control.ZoomToExtent');
@@ -129495,7 +130183,6 @@ goog.require('ol.format.GMLBase');
 goog.require('ol.format.GPX');
 goog.require('ol.format.GeoJSON');
 goog.require('ol.format.IGC');
-goog.require('ol.format.IGCZ');
 goog.require('ol.format.KML');
 goog.require('ol.format.MVT');
 goog.require('ol.format.OSMXML');
@@ -129603,7 +130290,6 @@ goog.require('ol.source.ImageMapGuide');
 goog.require('ol.source.ImageStatic');
 goog.require('ol.source.ImageVector');
 goog.require('ol.source.ImageWMS');
-goog.require('ol.source.MapQuest');
 goog.require('ol.source.OSM');
 goog.require('ol.source.Raster');
 goog.require('ol.source.RasterEvent');
@@ -129625,7 +130311,6 @@ goog.require('ol.source.VectorEvent');
 goog.require('ol.source.VectorEventType');
 goog.require('ol.source.VectorTile');
 goog.require('ol.source.WMTS');
-goog.require('ol.source.WMTSRequestEncoding');
 goog.require('ol.source.XYZ');
 goog.require('ol.source.Zoomify');
 goog.require('ol.style.Atlas');
@@ -139633,160 +140318,6 @@ goog.exportProperty(
     ol.source.ImageWMS.prototype,
     'updateParams',
     ol.source.ImageWMS.prototype.updateParams);
-
-goog.exportSymbol(
-    'ol.source.MapQuest',
-    ol.source.MapQuest);
-
-goog.exportProperty(
-    ol.source.MapQuest.prototype,
-    'changed',
-    ol.source.MapQuest.prototype.changed);
-
-goog.exportProperty(
-    ol.source.MapQuest.prototype,
-    'dispatchEvent',
-    ol.source.MapQuest.prototype.dispatchEvent);
-
-goog.exportProperty(
-    ol.source.MapQuest.prototype,
-    'get',
-    ol.source.MapQuest.prototype.get);
-
-goog.exportProperty(
-    ol.source.MapQuest.prototype,
-    'getAttributions',
-    ol.source.MapQuest.prototype.getAttributions);
-
-goog.exportProperty(
-    ol.source.MapQuest.prototype,
-    'getKeys',
-    ol.source.MapQuest.prototype.getKeys);
-
-goog.exportProperty(
-    ol.source.MapQuest.prototype,
-    'getLayer',
-    ol.source.MapQuest.prototype.getLayer);
-
-goog.exportProperty(
-    ol.source.MapQuest.prototype,
-    'getLogo',
-    ol.source.MapQuest.prototype.getLogo);
-
-goog.exportProperty(
-    ol.source.MapQuest.prototype,
-    'getProjection',
-    ol.source.MapQuest.prototype.getProjection);
-
-goog.exportProperty(
-    ol.source.MapQuest.prototype,
-    'getProperties',
-    ol.source.MapQuest.prototype.getProperties);
-
-goog.exportProperty(
-    ol.source.MapQuest.prototype,
-    'getRevision',
-    ol.source.MapQuest.prototype.getRevision);
-
-goog.exportProperty(
-    ol.source.MapQuest.prototype,
-    'getState',
-    ol.source.MapQuest.prototype.getState);
-
-goog.exportProperty(
-    ol.source.MapQuest.prototype,
-    'getTileGrid',
-    ol.source.MapQuest.prototype.getTileGrid);
-
-goog.exportProperty(
-    ol.source.MapQuest.prototype,
-    'getTileLoadFunction',
-    ol.source.MapQuest.prototype.getTileLoadFunction);
-
-goog.exportProperty(
-    ol.source.MapQuest.prototype,
-    'getTileUrlFunction',
-    ol.source.MapQuest.prototype.getTileUrlFunction);
-
-goog.exportProperty(
-    ol.source.MapQuest.prototype,
-    'getUrls',
-    ol.source.MapQuest.prototype.getUrls);
-
-goog.exportProperty(
-    ol.source.MapQuest.prototype,
-    'on',
-    ol.source.MapQuest.prototype.on);
-
-goog.exportProperty(
-    ol.source.MapQuest.prototype,
-    'once',
-    ol.source.MapQuest.prototype.once);
-
-goog.exportProperty(
-    ol.source.MapQuest.prototype,
-    'refresh',
-    ol.source.MapQuest.prototype.refresh);
-
-goog.exportProperty(
-    ol.source.MapQuest.prototype,
-    'set',
-    ol.source.MapQuest.prototype.set);
-
-goog.exportProperty(
-    ol.source.MapQuest.prototype,
-    'setAttributions',
-    ol.source.MapQuest.prototype.setAttributions);
-
-goog.exportProperty(
-    ol.source.MapQuest.prototype,
-    'setProperties',
-    ol.source.MapQuest.prototype.setProperties);
-
-goog.exportProperty(
-    ol.source.MapQuest.prototype,
-    'setRenderReprojectionEdges',
-    ol.source.MapQuest.prototype.setRenderReprojectionEdges);
-
-goog.exportProperty(
-    ol.source.MapQuest.prototype,
-    'setTileGridForProjection',
-    ol.source.MapQuest.prototype.setTileGridForProjection);
-
-goog.exportProperty(
-    ol.source.MapQuest.prototype,
-    'setTileLoadFunction',
-    ol.source.MapQuest.prototype.setTileLoadFunction);
-
-goog.exportProperty(
-    ol.source.MapQuest.prototype,
-    'setTileUrlFunction',
-    ol.source.MapQuest.prototype.setTileUrlFunction);
-
-goog.exportProperty(
-    ol.source.MapQuest.prototype,
-    'setUrl',
-    ol.source.MapQuest.prototype.setUrl);
-
-goog.exportProperty(
-    ol.source.MapQuest.prototype,
-    'setUrls',
-    ol.source.MapQuest.prototype.setUrls);
-
-goog.exportProperty(
-    ol.source.MapQuest.prototype,
-    'un',
-    ol.source.MapQuest.prototype.un);
-
-goog.exportProperty(
-    ol.source.MapQuest.prototype,
-    'unByKey',
-    ol.source.MapQuest.prototype.unByKey);
-
-goog.exportProperty(
-    ol.source.MapQuest.prototype,
-    'unset',
-    ol.source.MapQuest.prototype.unset);
 
 goog.exportSymbol(
     'ol.source.OSM',
