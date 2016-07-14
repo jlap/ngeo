@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>JSDoc: Class: WMSTime <small>service:gmfWMSTime</small></title>
+    <title>JSDoc: Class: DatePicker <small>directive:ngeoDatePicker</small></title>
 
     <script src="scripts/prettify/prettify.js"> </script>
     <script src="scripts/prettify/lang-css.js"> </script>
@@ -17,7 +17,7 @@
 
 <div id="main">
 
-    <h1 class="page-title">Class: WMSTime <small>service:gmfWMSTime</small></h1>
+    <h1 class="page-title">Class: DatePicker <small>directive:ngeoDatePicker</small></h1>
 
     
 
@@ -28,8 +28,8 @@
 
 <header>
     
-        <h2 id="WMSTime">
-            <span class="ancestors">gmf.</span>WMSTime
+        <h2 id="DatePicker">
+            <span class="ancestors">ngeo.</span>DatePicker
         </h2>
         
     
@@ -42,14 +42,14 @@
 
     
 
-    <h4 class="name" id="WMSTime"><span class="type-signature"></span>new WMSTime<span class="signature">($filter)</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="DatePicker"><span class="type-signature"></span>new DatePicker<span class="signature">(ngeoDatePickerTemplateUrl, $timeout)</span><span class="type-signature"></span></h4>
 
     
 
 
 
 <div class="description">
-    <p>gmf - WMS time service</p>
+    <p>Provide a directive to select a signle date or a range of dates</p>
 </div>
 
 
@@ -58,50 +58,6 @@
 
 
 
-
-
-    <h5>Parameters:</h5>
-    
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>$filter</code></td>
-            
-
-            <td class="type">
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>angular filter service.</p></td>
-        </tr>
-
-    
-    </tbody>
-</table>
 
 
 
@@ -140,8 +96,8 @@
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
     
-        <a href="https://github.com/camptocamp/ngeo/blob/master/contribs/gmf/src/services/wmstime.js">contribs/gmf/src/services/wmstime.js</a>,
-        <a href="https://github.com/camptocamp/ngeo/blob/master/contribs/gmf/src/services/wmstime.js#L15">line 15</a>
+        <a href="https://github.com/camptocamp/ngeo/blob/master/src/directives/datepicker.js">src/directives/datepicker.js</a>,
+        <a href="https://github.com/camptocamp/ngeo/blob/master/src/directives/datepicker.js#L31">line 31</a>
     </li></ul></dd>
     
 
@@ -171,17 +127,6 @@
     </div>
 
     
-        <h3 class="subsection-title">Extends</h3>
-
-        
-
-
-    <ul>
-        <li><a href="ngeo.Time.html">ngeo.Time</a></li>
-    </ul>
-
-
-    
 
     
 
@@ -193,475 +138,6 @@
 
     
 
-    
-        <h3 class="subsection-title">Methods</h3>
-
-        
-            
-
-    
-
-    <h4 class="name" id="formatWMSTimeParam"><span class="type-signature"></span>formatWMSTimeParam<span class="signature">(wmsTimeProperty, times, [opt_toUTC]<span class="signature-attributes">opt</span>)</span><span class="type-signature"></span></h4>
-
-    
-
-
-
-<div class="description">
-    <p>gmfWMSTime.prototype.formatWMSTimeParam - Format time to be used as a
-WMS Time query parameter</p>
-</div>
-
-
-
-
-
-
-
-
-
-    <h5>Parameters:</h5>
-    
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-        <th>Attributes</th>
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>wmsTimeProperty</code></td>
-            
-
-            <td class="type">
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>a wmstime property from a node</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>times</code></td>
-            
-
-            <td class="type">
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>start &amp; end time selected (in ms format)</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>[opt_toUTC]</code></td>
-            
-
-            <td class="type">
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>to get the UTC date</p></td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-
-
-
-
-
-
-
-<dl class="details">
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-    
-        <a href="https://github.com/camptocamp/ngeo/blob/master/contribs/gmf/src/services/wmstime.js">contribs/gmf/src/services/wmstime.js</a>,
-        <a href="https://github.com/camptocamp/ngeo/blob/master/contribs/gmf/src/services/wmstime.js#L67">line 67</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-            
-
-    
-
-    <h4 class="name" id="getOptions"><span class="type-signature"></span>getOptions<span class="signature">(time)</span><span class="type-signature"></span></h4>
-
-    
-
-
-
-<div class="description">
-    <p>Get options regarding the time property of a node;</p>
-</div>
-
-
-
-
-
-
-
-
-
-    <h5>Parameters:</h5>
-    
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>time</code></td>
-            
-
-            <td class="type">
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>the time property of a node</p></td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-
-
-
-
-
-
-
-<dl class="details">
-
-    
-
-    
-
-    
-    <dt class="inherited-from">Inherited From:</dt>
-    <dd class="inherited-from"><ul class="dummy"><li>
-        <a href="ngeo.Time.html#getOptions">ngeo.Time#getOptions</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-    
-        <a href="https://github.com/camptocamp/ngeo/blob/master/src/services/time.js">src/services/time.js</a>,
-        <a href="https://github.com/camptocamp/ngeo/blob/master/src/services/time.js#L28">line 28</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-            
-
-    
-
-    <h4 class="name" id="getUTCDate"><span class="type-signature"></span>getUTCDate<span class="signature">(localDate)</span><span class="type-signature"></span></h4>
-
-    
-
-
-
-<div class="description">
-    <p>Time.prototype.getUTCDate - Get UTC date from a local date object</p>
-</div>
-
-
-
-
-
-
-
-
-
-    <h5>Parameters:</h5>
-    
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>localDate</code></td>
-            
-
-            <td class="type">
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>loacl date object in</p></td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-
-
-
-
-
-
-
-<dl class="details">
-
-    
-
-    
-
-    
-    <dt class="inherited-from">Inherited From:</dt>
-    <dd class="inherited-from"><ul class="dummy"><li>
-        <a href="ngeo.Time.html#getUTCDate">ngeo.Time#getUTCDate</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-    
-        <a href="https://github.com/camptocamp/ngeo/blob/master/src/services/time.js">src/services/time.js</a>,
-        <a href="https://github.com/camptocamp/ngeo/blob/master/src/services/time.js#L57">line 57</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
     
 
     
