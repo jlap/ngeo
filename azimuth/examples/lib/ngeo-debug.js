@@ -107619,7 +107619,7 @@ ngeo.FeatureHelper.prototype.setProjection = function(projection) {
  * @export
  */
 ngeo.FeatureHelper.prototype.setStyle = function(feature, opt_select, opt_map) {
-  var styles = [this.getStyle(feature, opt_map)];
+  var styles = this.getStyle(feature, opt_map);
   if (opt_select) {
     if (this.supportsVertex_(feature)) {
       styles.push(this.getVertexStyle());
@@ -107636,7 +107636,7 @@ ngeo.FeatureHelper.prototype.setStyle = function(feature, opt_select, opt_map) {
  * @param {ol.Feature} feature Feature.
  * @param {ol.Map=} opt_map This is needed for the circle azimuth to be rendered
  *     in the corner. If ommitted, the azimuth will be displayed in the center.
- * @return {ol.style.Style} The style object.
+ * @return {Array.<ol.style.Style>} The style object.
  * @export
  */
 ngeo.FeatureHelper.prototype.getStyle = function(feature, opt_map) {
@@ -107664,7 +107664,14 @@ ngeo.FeatureHelper.prototype.getStyle = function(feature, opt_map) {
 
   goog.asserts.assert(style, 'Style should be thruthy');
 
-  return style;
+  var styles;
+  if (style.constructor === Array) {
+    styles = /** @type {Array.<ol.style.Style>}*/ (style);
+  } else {
+    styles = [style];
+  }
+
+  return styles;
 };
 
 
@@ -107738,7 +107745,7 @@ ngeo.FeatureHelper.prototype.getPointStyle_ = function(feature) {
  * @param {ol.Feature} feature Feature with polygon geometry.
  * @param {ol.Map=} opt_map This is needed for the circle azimuth to be rendered
  *     in the corner. If ommitted, the azimuth will be displayed in the center.
- * @return {ol.style.Style} Style.
+ * @return {Array.<ol.style.Style>} Style.
  * @private
  */
 ngeo.FeatureHelper.prototype.getPolygonStyle_ = function(feature, opt_map) {
@@ -107746,12 +107753,20 @@ ngeo.FeatureHelper.prototype.getPolygonStyle_ = function(feature, opt_map) {
   var strokeWidth = this.getStrokeProperty(feature);
   var opacity = this.getOpacityProperty(feature);
   var color = this.getRGBAColorProperty(feature);
+  var showMeasure = this.getShowMeasureProperty(feature);
+
 
   // fill color with opacity
   var fillColor = color.slice();
   fillColor[3] = opacity;
 
-  var options = {
+  var line = /** @type {ol.geom.LineString} */ (
+    feature.get(ngeo.FeatureProperties.RADIUS_GEOM));
+  var polygon = /** @type {ol.geom.Polygon} */ (feature.getGeometry());
+
+
+  var polygonOptions = {
+    geometry: polygon,
     fill: new ol.style.Fill({
       color: fillColor
     }),
@@ -107760,53 +107775,92 @@ ngeo.FeatureHelper.prototype.getPolygonStyle_ = function(feature, opt_map) {
       width: strokeWidth
     })
   };
+  var radiusOptions;
+  if (showMeasure) {
+    radiusOptions = {
+      geometry: line,
+      fill: new ol.style.Fill({
+        color: fillColor
+      }),
+      stroke: new ol.style.Stroke({
+        color: color,
+        width: strokeWidth
+      })
+    };
+  } else {
+    radiusOptions = {
+      geometry: line,
+      fill: new ol.style.Fill({
+        color: [0,0,0,0]
+      }),
+      stroke: new ol.style.Stroke({
+        color: [0,0,0,0],
+        width: 0
+      })
+    };
 
-  var showMeasure = this.getShowMeasureProperty(feature);
+  }
+
+  var extent = feature.getGeometry().getExtent();
 
   if (showMeasure) {
+    // Polygon azimuth style:
     var measure = this.getMeasure(feature);
 
-    var type = this.getType(feature);
+    // Which corner to display the azimuth at
+    var azimuth = parseInt(measure, 10);
 
-    if (type === ngeo.GeometryType.CIRCLE && opt_map) {
-      var extent = feature.getGeometry().getExtent();
+    var offsetCoordinates = null;
 
-      // Which corner to display the azimuth at
-      var azimuth = parseInt(measure, 10);
+    if (azimuth > 0 && azimuth <= 90) {
+      offsetCoordinates = ol.extent.getTopRight(extent);
+    } else if (azimuth > 90 && azimuth <= 180) {
+      offsetCoordinates = ol.extent.getBottomRight(extent);
+    } else if (azimuth > -180 && azimuth < -90) {
+      offsetCoordinates = ol.extent.getBottomLeft(extent);
+    } else {
+      offsetCoordinates = ol.extent.getTopLeft(extent);
+    }
 
-      var offsetCoordinates = null;
-
-      if (azimuth > 0 && azimuth <= 90) {
-        offsetCoordinates = ol.extent.getTopRight(extent);
-      } else if (azimuth > 90 && azimuth <= 180) {
-        offsetCoordinates = ol.extent.getBottomRight(extent);
-      } else if (azimuth > -180 && azimuth < -90) {
-        offsetCoordinates = ol.extent.getBottomLeft(extent);
-      } else {
-        offsetCoordinates = ol.extent.getTopLeft(extent);
-      }
-
-      // Finding out the offset in pixels
+    // Finding out the offset in pixels
+    var offsetX, offsetY;
+    if (opt_map) {
       var centerPixel = opt_map.getPixelFromCoordinate(ol.extent.getCenter(extent));
       var cornerPixel = opt_map.getPixelFromCoordinate(offsetCoordinates);
 
-      var offsetX = cornerPixel[0] - centerPixel[0];
-      var offsetY = cornerPixel[1] - centerPixel[1];
-
-      options.text = this.createTextStyle_(
-        measure,
-        10,
-        undefined,
-        undefined,
-        undefined,
-        offsetX,
-        offsetY);
-    } else {
-      options.text = this.createTextStyle_(measure, 10);
+      offsetX = cornerPixel[0] - centerPixel[0];
+      offsetY = cornerPixel[1] - centerPixel[1];
     }
+    polygonOptions.text = this.createTextStyle_(
+      measure,
+      10,
+      undefined,
+      undefined,
+      undefined,
+      offsetX,
+      offsetY);
+
+    // Radius azimuth style:
+    var lineGeometry = /** @type {ol.geom.LineString} */ (
+      feature.get(ngeo.FeatureProperties.RADIUS_GEOM));
+
+    if (lineGeometry) {
+      var length = ngeo.interaction.Measure.getFormattedLength(
+        lineGeometry, this.projection_, this.decimals_, this.format_);
+
+      radiusOptions.text = this.createTextStyle_(
+        length,
+        10);
+    }
+
+
   }
 
-  return new ol.style.Style(options);
+  var polygonStyle = new ol.style.Style(polygonOptions);
+
+  var lineStyle = new ol.style.Style(radiusOptions);
+
+  return [lineStyle, polygonStyle];
 };
 
 
