@@ -107177,7 +107177,7 @@ ngeo.interaction.MeasureAzimut.getFormattedAzimuthRadius = function(
   var output = ngeo.interaction.MeasureAzimut.getFormattedAzimuth(
     line, projection, decimals, format);
 
-  output += '<br/>' + ngeo.interaction.Measure.getFormattedLength(
+  output += ', ' + ngeo.interaction.Measure.getFormattedLength(
       line, projection, decimals, format);
 
   return output;
@@ -107805,46 +107805,46 @@ ngeo.FeatureHelper.prototype.getPolygonStyle_ = function(feature, opt_map) {
 
   if (showMeasure) {
     // Polygon azimuth style:
-    var measure = this.getMeasure(feature);
-
-    // Which corner to display the azimuth at
-    var azimuth = parseInt(measure, 10);
-
-    var offsetCoordinates = null;
-
-    if (azimuth > 0 && azimuth <= 90) {
-      offsetCoordinates = ol.extent.getTopRight(extent);
-    } else if (azimuth > 90 && azimuth <= 180) {
-      offsetCoordinates = ol.extent.getBottomRight(extent);
-    } else if (azimuth > -180 && azimuth < -90) {
-      offsetCoordinates = ol.extent.getBottomLeft(extent);
-    } else {
-      offsetCoordinates = ol.extent.getTopLeft(extent);
-    }
-
-    // Finding out the offset in pixels
-    var offsetX, offsetY;
-    if (opt_map) {
-      var centerPixel = opt_map.getPixelFromCoordinate(ol.extent.getCenter(extent));
-      var cornerPixel = opt_map.getPixelFromCoordinate(offsetCoordinates);
-
-      offsetX = cornerPixel[0] - centerPixel[0];
-      offsetY = cornerPixel[1] - centerPixel[1];
-    }
-    polygonOptions.text = this.createTextStyle_(
-      measure,
-      10,
-      undefined,
-      undefined,
-      undefined,
-      offsetX,
-      offsetY);
-
-    // Radius azimuth style:
     var lineGeometry = /** @type {ol.geom.LineString} */ (
       feature.get(ngeo.FeatureProperties.RADIUS_GEOM));
 
-    if (lineGeometry) {
+    // Which corner to display the azimuth at
+    if (lineGeometry instanceof ol.geom.LineString) {
+      var formattedAzimuth = ngeo.interaction.MeasureAzimut.getFormattedAzimuth(
+          lineGeometry, this.projection_, this.decimals_, this.format_);
+      var azimuth = parseInt(formattedAzimuth, 10);
+
+      var offsetCoordinates = null;
+
+      if (azimuth > 0 && azimuth <= 90) {
+        offsetCoordinates = ol.extent.getTopRight(extent);
+      } else if (azimuth > 90 && azimuth <= 180) {
+        offsetCoordinates = ol.extent.getBottomRight(extent);
+      } else if (azimuth > -180 && azimuth < -90) {
+        offsetCoordinates = ol.extent.getBottomLeft(extent);
+      } else {
+        offsetCoordinates = ol.extent.getTopLeft(extent);
+      }
+
+      // Finding out the offset in pixels
+      var offsetX, offsetY;
+      if (opt_map) {
+        var centerPixel = opt_map.getPixelFromCoordinate(ol.extent.getCenter(extent));
+        var cornerPixel = opt_map.getPixelFromCoordinate(offsetCoordinates);
+
+        offsetX = cornerPixel[0] - centerPixel[0];
+        offsetY = cornerPixel[1] - centerPixel[1];
+      }
+      polygonOptions.text = this.createTextStyle_(
+        formattedAzimuth,
+        10,
+        undefined,
+        undefined,
+        undefined,
+        offsetX,
+        offsetY);
+
+      // Radius azimuth style:
       var length = ngeo.interaction.Measure.getFormattedLength(
         lineGeometry, this.projection_, this.decimals_, this.format_);
 
@@ -107852,8 +107852,6 @@ ngeo.FeatureHelper.prototype.getPolygonStyle_ = function(feature, opt_map) {
         length,
         10);
     }
-
-
   }
 
   var polygonStyle = new ol.style.Style(polygonOptions);
@@ -108306,7 +108304,7 @@ ngeo.FeatureHelper.prototype.getMeasure = function(feature) {
         feature.set(ngeo.FeatureProperties.RADIUS_GEOM, radius);
       }
 
-      measure = ngeo.interaction.MeasureAzimut.getFormattedAzimuth(
+      measure = ngeo.interaction.MeasureAzimut.getFormattedAzimuthRadius(
         radius, this.projection_, this.decimals_, this.format_);
     } else {
       measure = ngeo.interaction.Measure.getFormattedArea(
